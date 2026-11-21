@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1a1238">
+<title>节奏团子</title>
+<meta name="description" content="原创一键节奏闯关：8 个关卡、双生团子新玩法、练习模式、每日挑战。">
+<style>
+:root{--bg:#1a1238;--panel:#251a4d;--panel2:#30235f;--line:rgba(255,200,240,.18);--fg:#fff4fb;--muted:#c7b8e0;--pink:#ff9fb2;--gold:#ffd166;--mint:#80ed99;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.screen{position:fixed;inset:0;display:flex;padding:calc(var(--st) + 14px) max(16px,var(--sr)) calc(var(--sb) + 14px) max(16px,var(--sl));background:rgba(20,12,44,.8);backdrop-filter:blur(4px);z-index:10;overflow:auto}
+.screen[hidden]{display:none}
+.box{width:100%;max-width:720px;margin:auto}
+h1{margin:0;text-align:center;font-size:clamp(34px,8vw,54px);letter-spacing:.08em;color:#fff;text-shadow:0 4px 0 #c2507a,0 0 24px rgba(255,159,178,.6)}
+h2{margin:0 0 10px;text-align:center;font-size:26px}
+.sub{color:var(--muted);text-align:center;font-size:13px;margin:6px 0 14px;line-height:1.6}
+.levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:10px 0}
+.lv{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:12px;text-align:left;min-height:96px;overflow:hidden}
+.lv .num{font-size:12px;color:var(--muted)}
+.lv b{display:block;font-size:17px;margin:2px 0 4px}
+.lv .st{color:var(--gold);font-size:14px;letter-spacing:2px}
+.lv .pct{font-size:12px;color:var(--muted);margin-top:4px}
+.lv .bar{position:absolute;left:0;bottom:0;height:4px;background:var(--c,#ff9fb2)}
+.lv.lock{opacity:.45}
+.lv.done{border-color:rgba(255,209,102,.5)}
+.lv.daily{grid-column:1/-1;background:linear-gradient(135deg,#3a2470,#5a2a6a);min-height:72px}
+@media (hover:hover){.lv:not(.lock):hover,.btn:hover{filter:brightness(1.15)}}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:12px 18px;font-size:16px;font-weight:700;min-height:48px}
+.btn.primary{background:linear-gradient(135deg,#ff7aa2,#b56bff);border-color:transparent;box-shadow:0 6px 22px rgba(255,122,162,.35)}
+.btn.small{padding:8px 12px;font-size:14px;min-height:40px}
+.btn.on{border-color:var(--mint);color:var(--mint)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:14px;color:var(--muted)}
+.top a{color:var(--muted);text-decoration:none}
+.stars{color:var(--gold);font-weight:800}
+.big{font-size:44px;text-align:center;color:var(--gold);letter-spacing:6px;margin:6px 0}
+.statline{display:flex;gap:10px;justify-content:center;margin:8px 0 16px;flex-wrap:wrap}
+.statline div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 14px;text-align:center;min-width:92px}
+.statline small{display:block;color:var(--muted);font-size:12px}
+.statline b{font-size:20px}
+#btnPause{position:fixed;top:calc(var(--st) + 12px);right:calc(var(--sr) + 12px);z-index:5;width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:rgba(20,12,44,.5);font-weight:900;font-size:16px}
+.hint{color:var(--muted);font-size:12px;text-align:center;margin-top:10px;line-height:1.6}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<div id="probe" style="position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)"></div>
+<canvas id="cv"></canvas>
+<button id="btnPause" class="hide" aria-label="暂停">II</button>
+
+<div class="screen" id="menu">
+  <div class="box">
+    <div class="top"><a href="../">← 游戏大厅</a><span>总星星 <span class="stars" id="totalStars">0</span></span></div>
+    <h1>节奏团子</h1>
+    <p class="sub">跟着节拍跳！点一下跳，按住连跳。<br>新玩法「双生」：上下两只团子同时听你一个指令。</p>
+    <div class="levels" id="levelList"></div>
+    <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" id="btnSfx">音效：开</button></div>
+    <div class="hint" id="rotHint">手机横屏玩视野更大。电脑：空格 / 方向上 / 鼠标点击 跳跃，P 暂停。</div>
+  </div>
+</div>
+
+<div class="screen" id="pause" hidden>
+  <div class="box" style="max-width:420px">
+    <h2 id="pauseTitle">暂停</h2>
+    <p class="sub" id="pauseSub"></p>
+    <div class="row" style="flex-direction:column;align-items:stretch">
+      <button class="btn primary" id="btnResume">继续</button>
+      <button class="btn" id="btnPractice">练习模式：关</button>
+      <button class="btn" id="btnRestart">从头开始</button>
+      <button class="btn" id="btnLevels">返回选关</button>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="btnMusic2">音乐</button><button class="btn small" id="btnSfx2">音效</button></div>
+    <p class="hint">练习模式会自动放置存档点（菱形），死亡后从存档点继续，但不计入成绩。</p>
+  </div>
+</div>
+
+<div class="screen" id="win" hidden>
+  <div class="box" style="max-width:460px">
+    <h2 id="winTitle">通关！</h2>
+    <div class="big" id="winStars">★★★</div>
+    <div class="statline" id="winStats"></div>
+    <div class="row">
+      <button class="btn primary" id="btnNext">下一关</button>
+      <button class="btn" id="btnAgain">再玩一次</button>
+      <button class="btn" id="btnWinLevels">选关</button>
+    </div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script>
+'use strict';
+const K=DangoCore,PH=K.PH;
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+let W=0,H=0,DPR=1,T=40,safeT=0;
+function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);T=Math.min(H/12.5,W/14);safeT=parseFloat(getComputedStyle($('probe')).paddingTop)||0;}
+addEventListener('resize',resize);resize();
+const TAU=Math.PI*2;
+
+/* ---------- 存档 ---------- */
+const SKEY='dango-dash-v1';
+let save=(()=>{try{const s=JSON.parse(localStorage.getItem(SKEY));if(s&&s.levels)return Object.assign({music:1,sfx:1,daily:{}},s)}catch(e){}return{levels:{},daily:{},music:1,sfx:1}})();
+function persist(){try{localStorage.setItem(SKEY,JSON.stringify(save))}catch(e){}}
+function lvSave(id){return save.levels[id]||(save.levels[id]={best:0,done:false,stars:0,attempts:0})}
+const bits=n=>(n&1)+((n>>1)&1)+((n>>2)&1);
+function todayKey(){const d=new Date();return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate()}
+
+/* ---------- 音频 ---------- */
+let AC=null,master=null,musicBus=null,sfxBus=null,noiseBuf=null;
+function initAudio(){
+  if(AC){if(AC.state==='suspended')AC.resume();return}
+  try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return}
+  master=AC.createGain();master.connect(AC.destination);
+  musicBus=AC.createGain();musicBus.gain.value=save.music?0.5:0;musicBus.connect(master);
+  sfxBus=AC.createGain();sfxBus.gain.value=save.sfx?0.6:0;sfxBus.connect(master);
+  noiseBuf=AC.createBuffer(1,AC.sampleRate*0.5,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+}
+function applyAudio(){
+  if(musicBus)musicBus.gain.value=save.music?0.5:0;if(sfxBus)sfxBus.gain.value=save.sfx?0.6:0;
+  for(const id of ['btnMusic','btnMusic2'])$(id).textContent='音乐：'+(save.music?'开':'关');
+  for(const id of ['btnSfx','btnSfx2'])$(id).textContent='音效：'+(save.sfx?'开':'关');
+}
+function blip(f,dur,type,vol,slide,when,bus){
+  if(!AC)return;const t=when||AC.currentTime;const o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+  if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f*slide),t+dur);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.005);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.connect(g);g.connect(bus||sfxBus);o.start(t);o.stop(t+dur+0.02);
+}
+function nz(dur,vol,type,freq,when,bus){
+  if(!AC)return;const t=when||AC.currentTime;const s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type=type||'lowpass';f.frequency.value=freq||1000;
+  const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);s.connect(f);f.connect(g);g.connect(bus||sfxBus);s.start(t);s.stop(t+dur+0.01);
+}
+function sfx(n){
+  if(!AC||!save.sfx)return;const now=AC.currentTime;
+  if(n==='die'){nz(0.45,0.5,'lowpass',1800);blip(180,0.35,'sawtooth',0.15,0.3)}
+  else if(n==='coin'){[1319,1760,2349].forEach((f,i)=>blip(f,0.12,'triangle',0.12,1,now+i*0.05))}
+  else if(n==='orb'){blip(880,0.12,'sine',0.12,1.6)}
+  else if(n==='pad'){blip(300,0.18,'square',0.07,3)}
+  else if(n==='grav'){blip(600,0.25,'sine',0.1,0.5);blip(900,0.25,'sine',0.06,2)}
+  else if(n==='twin'){[523,784,1047].forEach((f,i)=>blip(f,0.2,'triangle',0.1,1,now+i*0.04))}
+  else if(n==='win'){[523,659,784,1047,1319,1568].forEach((f,i)=>blip(f,0.3,'triangle',0.12,1,now+i*0.08))}
+  else if(n==='click'){blip(1000,0.04,'square',0.05)}
+  else if(n==='check'){blip(1568,0.1,'sine',0.08)}
+}
+/* 每关独立的程序化配乐，严格对齐 BPM */
+const SCALE=[0,3,5,7,10];
+function seeded(seed){let s=seed*9301+49297;return()=>{s=(s*9301+49297)%233280;return s/233280}}
+let mus=null;
+function makeSong(lv){
+  const r=seeded(lv.id*31+(lv.key||0)+7);const root=45+(lv.key||0);
+  const prog=[[0,3,7],[8,12,15],[3,7,10],[10,14,17]];          // i - VI - III - VII
+  const lead=[];for(let i=0;i<32;i++){lead.push(r()<0.62?SCALE[Math.floor(r()*5)]+12*(1+Math.floor(r()*2)):null)}
+  return{root,prog,lead,bpm:lv.bpm};
+}
+function startMusic(lv,offset){
+  stopMusic();if(!AC)return;
+  const g=AC.createGain();g.gain.value=1;g.connect(musicBus);
+  const song=makeSong(lv);const spb=60/song.bpm/4;               // 每个 16 分音符
+  const t0=AC.currentTime+0.03-offset;
+  mus={g,song,spb,t0,step:Math.max(0,Math.ceil(offset/spb)),timer:null};
+  mus.timer=setInterval(musicTick,25);musicTick();
+}
+function musicTick(){
+  if(!mus)return;const m=mus,s=m.song;
+  while(m.t0+m.step*m.spb<AC.currentTime+0.15){
+    const t=m.t0+m.step*m.spb,i=m.step,bar=Math.floor(i/16)%4,ch=s.prog[bar],b=m.g;
+    if(t>=AC.currentTime-0.01){
+      if(i%4===0){const o=AC.createOscillator(),g=AC.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+0.12);g.gain.setValueAtTime(0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);o.connect(g);g.connect(b);o.start(t);o.stop(t+0.2)}
+      if(i%8===4)nz(0.12,0.25,'bandpass',1800,t,b);
+      if(i%2===1)nz(0.03,0.1,'highpass',7000,t,b);
+      if(i%2===0)blip(440*Math.pow(2,(s.root-24+ch[0]-69+12)/12),m.spb*1.8,'sawtooth',0.12,1,t,b);
+      if(i%4===2)blip(440*Math.pow(2,(s.root+ch[(i>>2)%3]-69+12)/12),m.spb*1.5,'square',0.035,1,t,b);
+      const n=s.lead[i%32];if(n!==null&&i>=32)blip(440*Math.pow(2,(s.root+n+ch[0]%12-69+12)/12),m.spb*1.6,'triangle',0.07,1,t,b);
+    }
+    m.step++;
+  }
+}
+function stopMusic(){if(!mus)return;clearInterval(mus.timer);const g=mus.g;try{g.gain.setTargetAtTime(0,AC.currentTime,0.03);setTimeout(()=>g.disconnect(),400)}catch(e){}mus=null}
+function beatPhase(){if(!mus||!AC)return 0;const b=(AC.currentTime-mus.t0)/(mus.spb*4);return b-Math.floor(b)}
+
+/* ---------- 状态 ---------- */
+let mode='menu';      // menu | play | dead | pause | win
+let cur=null;         // {lv, L, daily}
+let st=null,attempt=1,practice=false,checkpoints=[],lastCp=0,deadT=0,acc=0,cpDeaths=0;
+let held=false,tapPending=false;
+let parts=[],cam={x:0,y:0},beat=0;
+let vis=[];           // 每个身体的视觉状态
+const PLAYER_COLORS=['#ffe3ec','#c8ffe0'];
+
+function levelById(id){return K.LEVELS.find(l=>l.id===id)}
+function startLevel(lv,daily){
+  initAudio();
+  if(daily){const key=todayKey();const d=K.makeDaily(key);const hue=key%360;
+    lv={id:'daily',name:'每日挑战 '+String(key).slice(4,6)+'-'+String(key).slice(6),sub:'每天一张新地图',color:'hsl('+hue+',90%,75%)',bg:['hsl('+hue+',45%,14%)','hsl('+((hue+40)%360)+',45%,32%)'],bpm:126+key%12,key:key%12};
+    cur={lv,L:d.L,daily:true}}
+  else cur={lv,L:K.assemble(lv.seq),daily:false};
+  attempt=1;practice=false;$('btnPractice').textContent='练习模式：关';$('btnPractice').classList.remove('on');
+  restart(true);
+}
+function restart(fromStart){
+  st=K.newState(cur.L);parts=[];
+  if(practice&&!fromStart&&checkpoints.length){st=K.clone(checkpoints[checkpoints.length-1])}
+  if(fromStart)checkpoints=[];
+  lastCp=st.t;held=false;tapPending=false;acc=0;
+  vis=st.bodies.map(()=>({rot:0,sq:1}));
+  cam.x=st.x;
+  mode='play';showScreen(null);$('btnPause').classList.remove('hide');
+  startMusic(cur.lv,st.t);last=performance.now();
+}
+function die(){
+  mode='dead';deadT=0.7;stopMusic();sfx('die');
+  for(const b of st.bodies)for(let i=0;i<26;i++){const a=Math.random()*TAU,s=2+Math.random()*7;parts.push({x:st.x,y:b.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0.7,c:i%2?cur.lv.color:'#fff',r:0.08+Math.random()*0.12})}
+  if(practice&&++cpDeaths>=6&&checkpoints.length>1){checkpoints.pop();cpDeaths=0}
+  const pct=progress();if(!practice&&!cur.daily){const s=lvSave(cur.lv.id);s.attempts++;if(pct>s.best)s.best=pct;persist()}
+  if(cur.daily&&!practice){const d=save.daily;if(d.key!==todayKey()){d.key=todayKey();d.best=0;d.done=false}if(pct>d.best)d.best=pct;persist()}
+}
+function progress(){return Math.min(100,Math.floor(st.x/cur.L.end*100))}
+function winLevel(){
+  mode='win';stopMusic();sfx('win');$('btnPause').classList.add('hide');
+  const got=bits(st.coins);let firstClear=false;
+  if(!practice){
+    if(cur.daily){const d=save.daily;if(d.key!==todayKey()){d.key=todayKey();d.best=0}firstClear=!d.done;d.done=true;d.best=100}
+    else{const s=lvSave(cur.lv.id);s.attempts++;firstClear=!s.done;s.done=true;s.best=100;s.stars|=st.coins}
+    persist();
+  }
+  $('winTitle').textContent=practice?'练习完成！':(firstClear?'首次通关！':'通关！');
+  $('winStars').textContent='★'.repeat(got)+'☆'.repeat(3-got);
+  $('winStats').innerHTML='<div><small>尝试次数</small><b>'+attempt+'</b></div><div><small>星星</small><b>'+got+' / 3</b></div><div><small>用时</small><b>'+st.t.toFixed(1)+'s</b></div>'+(practice?'<div><small>模式</small><b>练习</b></div>':'');
+  const nxt=!cur.daily&&levelById(cur.lv.id+1);$('btnNext').classList.toggle('hide',!nxt);
+  $('btnNext').textContent=practice?'正式挑战':'下一关';
+  if(practice){$('btnNext').classList.remove('hide')}
+  showScreen('win');
+}
+$('btnNext').onclick=()=>{sfx('click');if(practice){practice=false;startLevel(cur.lv,cur.daily);return}const n=levelById(cur.lv.id+1);if(n)startLevel(n)};
+$('btnAgain').onclick=()=>{sfx('click');const p=practice;startLevel(cur.lv,cur.daily);if(p){practice=true;$('btnPractice').textContent='练习模式：开';$('btnPractice').classList.add('on')}};
+$('btnWinLevels').onclick=()=>openMenu();
+
+/* ---------- 输入 ---------- */
+function press(){initAudio();if(mode==='play'){held=true;tapPending=true}}
+function release(){held=false}
+cv.addEventListener('pointerdown',e=>{e.preventDefault();press()});
+addEventListener('pointerup',release);addEventListener('pointercancel',release);
+addEventListener('keydown',e=>{
+  if(e.repeat)return;
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Enter'){if(mode==='play'){e.preventDefault();press()}else if(mode==='win'&&e.code!=='Space'){$('btnNext').classList.contains('hide')?$('btnAgain').click():$('btnNext').click()}}
+  if(e.code==='KeyP'||e.code==='Escape'){if(mode==='play')openPause();else if(mode==='pause')resume()}
+  if(e.code==='KeyR'&&(mode==='play'||mode==='pause')){attempt++;restart(!practice)}
+});
+addEventListener('keyup',e=>{if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'||e.code==='Enter')release()});
+$('btnPause').addEventListener('pointerdown',e=>{e.stopPropagation()});
+$('btnPause').onclick=()=>openPause();
+function openPause(){
+  if(mode!=='play')return;mode='pause';stopMusic();
+  $('pauseTitle').textContent=cur.lv.name;$('pauseSub').textContent='进度 '+progress()+'% · 第 '+attempt+' 次尝试';
+  showScreen('pause');applyAudio();
+}
+function resume(){showScreen(null);mode='play';held=false;startMusic(cur.lv,st.t);last=performance.now()}
+$('btnResume').onclick=resume;
+$('btnRestart').onclick=()=>{attempt++;restart(true)};
+$('btnLevels').onclick=()=>openMenu();
+$('btnPractice').onclick=()=>{practice=!practice;$('btnPractice').textContent='练习模式：'+(practice?'开':'关');$('btnPractice').classList.toggle('on',practice);if(practice){checkpoints=[];lastCp=st.t;if(st.bodies.every(b=>b.g)&&safeHere())checkpoints.push(K.clone(st))}};
+function safeHere(){return K.solve(cur.L,{init:K.clone(st),horizon:45,maxWidth:400}).ok}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')openPause()});
+function toggleMusic(){initAudio();save.music=save.music?0:1;persist();applyAudio()}
+function toggleSfx(){initAudio();save.sfx=save.sfx?0:1;persist();applyAudio()}
+$('btnMusic').onclick=toggleMusic;$('btnMusic2').onclick=toggleMusic;$('btnSfx').onclick=toggleSfx;$('btnSfx2').onclick=toggleSfx;
+
+/* ---------- 菜单 ---------- */
+function showScreen(id){for(const s of ['menu','pause','win'])$(s).hidden=s!==id}
+function openMenu(){
+  mode='menu';stopMusic();cur=null;st=null;showScreen('menu');$('btnPause').classList.add('hide');applyAudio();
+  const list=$('levelList');list.innerHTML='';let total=0;
+  const d=save.daily.key===todayKey()?save.daily:{best:0,done:false};
+  const db=document.createElement('button');db.className='lv daily';db.style.setProperty('--c','#ffd166');
+  db.innerHTML='<span class="num">每日挑战 · 每天一张随机新图</span><b>今日地图 '+(d.done?'✓ 已通关':'')+'</b><div class="pct">最佳 '+(d.best||0)+'%</div><div class="bar" style="width:'+(d.best||0)+'%"></div>';
+  db.onclick=()=>{sfx('click');db.querySelector('b').textContent='生成中…';setTimeout(()=>startLevel(null,true),30)};
+  list.appendChild(db);
+  K.LEVELS.forEach((lv,i)=>{
+    const s=lvSave(lv.id);total+=bits(s.stars);
+    const unlocked=i===0||lvSave(K.LEVELS[i-1].id).done;
+    const b=document.createElement('button');b.className='lv'+(unlocked?'':' lock')+(s.done?' done':'');b.style.setProperty('--c',lv.color);
+    b.innerHTML='<span class="num">第 '+lv.id+' 关'+(lv.id===6?' · 新玩法':'')+'</span><b>'+(unlocked?lv.name:'🔒 '+lv.name)+'</b><div class="st">'+'★'.repeat(bits(s.stars))+'☆'.repeat(3-bits(s.stars))+'</div><div class="pct">'+(s.done?'已通关':'最佳 '+s.best+'%')+(s.attempts?' · '+s.attempts+' 次':'')+'</div><div class="bar" style="width:'+s.best+'%"></div>';
+    b.onclick=()=>{sfx('click');if(!unlocked){b.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'none'}],{duration:220});return}startLevel(lv)};
+    list.appendChild(b);
+  });
+  $('totalStars').textContent=total+' / '+K.LEVELS.length*3;
+}
+
+/* ---------- 更新 ---------- */
+function handleEvents(){
+  for(const e of st.events){
+    if(e==='coin'||e==='orb'||e==='pad'||e==='grav'||e==='twin')sfx(e);
+    if(e==='coin')burstAt(st.x,st.bodies[0].y,'#ffd166',12);
+    if(e==='twin'){vis.push({rot:0,sq:1});burstAt(st.x,st.bodies[1].y,'#80ed99',16)}
+    if(e==='untwin'){if(vis[1])burstAt(st.x,9-st.bodies[0].y,'#80ed99',12);vis.length=1}
+    if(e==='orb'||e==='pad')burstAt(st.x,st.bodies[0].y,'#ffd166',8);
+  }
+  st.events.length=0;
+}
+function burstAt(x,y,c,n){for(let i=0;i<n;i++){const a=Math.random()*TAU,s=1+Math.random()*4;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,t:0.5,c,r:0.06+Math.random()*0.08})}}
+function update(dt){
+  if(mode==='play'){
+    acc+=dt;let n=0;
+    while(acc>=PH.DT&&n<30){
+      const prevG=st.bodies.map(b=>b.g);
+      K.step(st,cur.L,held||tapPending);n++;acc-=PH.DT;
+      if(n>=PH.SUB)tapPending=false;
+      st.bodies.forEach((b,i)=>{if(b.land){b.land=0;if(vis[i])vis[i].sq=0.7}});
+      if(st.dead){handleEvents();die();break}
+      handleEvents();
+      if(st.won){winLevel();break}
+    }
+    tapPending=false;
+    if(mode==='play'){
+      // 视觉：空中旋转，落地回正
+      st.bodies.forEach((b,i)=>{const v=vis[i]||(vis[i]={rot:0,sq:1});if(!b.g)v.rot+=dt*PH.VX*st.speed*1.1*b.s;else{const tgt=Math.round(v.rot/(TAU/4))*(TAU/4);v.rot+=(tgt-v.rot)*Math.min(1,dt*18)}v.sq+=(1-v.sq)*Math.min(1,dt*10)});
+      // 练习存档点
+      if(practice&&st.t-lastCp>1.4&&st.bodies.every(b=>b.g)){lastCp=st.t;if(safeHere()){checkpoints.push(K.clone(st));cpDeaths=0;sfx('check')}}
+      if(Math.random()<0.5)parts.push({x:st.x-0.3,y:st.bodies[0].y-0.2*st.bodies[0].s,vx:-1-Math.random(),vy:(Math.random()-0.5),t:0.35,c:cur.lv.color,r:0.05+Math.random()*0.05});
+    }
+  }else if(mode==='dead'){
+    deadT-=dt;if(deadT<=0){attempt++;restart(false)}
+  }
+  for(const p of parts){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy-=6*dt;p.t-=dt}parts=parts.filter(p=>p.t>0);
+  if(st){
+    const tx=st.x+W/T*0.2;cam.x+=(tx-cam.x)*Math.min(1,dt*20);if(mode==='play'&&Math.abs(tx-cam.x)>3)cam.x=tx;
+    const rows=H/T;let ty=-1.3;const top=Math.max(...st.bodies.map(b=>b.y));if(top>ty+rows-2.5)ty=top-rows+2.5;
+    cam.y+=(ty-cam.y)*Math.min(1,dt*6);
+  }
+  beat=1-beatPhase();
+}
+
+/* ---------- 绘制 ---------- */
+const sx=x=>(x-cam.x)*T+W/2,sy=y=>H-(y-cam.y)*T;
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  const lv=cur?cur.lv:K.LEVELS[0];
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,lv.bg[0]);g.addColorStop(1,lv.bg[1]);ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const camx=cam.x,t=performance.now()/1000;
+  // 星星
+  ctx.fillStyle='rgba(255,255,255,.6)';
+  for(let i=0;i<60;i++){const px=((i*137.5-camx*T*0.05)%W+W)%W,py=(i*71.3)%(H*0.6);const s=(i%3===0?2:1)*(1+0.3*Math.sin(t*2+i));ctx.fillRect(px,py,s,s)}
+  // 远山（随节拍呼吸）
+  const pulse=Math.pow(beat,3);
+  for(const [k,alpha,amp,base] of [[0.15,0.18,0.10,0.62],[0.35,0.28,0.07,0.74]]){
+    ctx.fillStyle='rgba(255,255,255,'+alpha*0.35+')';ctx.beginPath();ctx.moveTo(0,H);
+    for(let x=0;x<=W;x+=16){const wx=(x+camx*T*k)/T;ctx.lineTo(x,H*base-Math.abs(Math.sin(wx*0.23)+Math.sin(wx*0.11+1))*H*amp*(1+pulse*0.08))}
+    ctx.lineTo(W,H);ctx.fill();
+  }
+  if(!cur){drawMenuDecor(t);return}
+  const L=cur.L,c0=Math.floor(camx-W/T/2)-1,c1=Math.ceil(camx+W/T/2)+1;
+  const r0=Math.floor(cam.y)-1,r1=Math.ceil(cam.y+H/T)+1;
+  // 地面
+  const gy=sy(0);
+  ctx.fillStyle='rgba(10,6,24,.55)';ctx.fillRect(0,gy,W,H-gy);
+  ctx.strokeStyle=lv.color;ctx.globalAlpha=0.6+pulse*0.4;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();ctx.globalAlpha=1;
+  ctx.strokeStyle='rgba(255,255,255,.06)';ctx.lineWidth=1;ctx.beginPath();for(let c=c0;c<=c1;c++){const x=sx(c);ctx.moveTo(x,gy);ctx.lineTo(x-T*0.6,H)}ctx.stroke();
+  // 终点
+  const ex=sx(L.end);if(ex<W+T){for(let r=0;r<14;r++)for(let k=0;k<2;k++){ctx.fillStyle=(r+k)%2?'#fff':'#222';ctx.fillRect(ex+k*T*0.3,sy(r+1)+0,T*0.3,T)}}
+  // 格子
+  for(let c=Math.max(0,c0);c<=Math.min(L.w-1,c1);c++){
+    for(let r=Math.max(0,r0);r<=Math.min(L.h-1,r1);r++){
+      const ch=L.grid[r][c];if(ch==='.')continue;
+      const x=sx(c),y=sy(r+1);
+      if(ch==='#'){
+        const up=K.tile(L,c,r+1)==='#',dn=K.tile(L,c,r-1)==='#';
+        ctx.fillStyle='rgba(20,12,40,.85)';ctx.fillRect(x,y,T+0.5,T+0.5);
+        ctx.strokeStyle=lv.color;ctx.lineWidth=2;ctx.globalAlpha=0.85;
+        ctx.beginPath();
+        if(!up){ctx.moveTo(x,y+1);ctx.lineTo(x+T,y+1)}if(!dn){ctx.moveTo(x,y+T-1);ctx.lineTo(x+T,y+T-1)}
+        if(K.tile(L,c-1,r)!=='#'){ctx.moveTo(x+1,y);ctx.lineTo(x+1,y+T)}if(K.tile(L,c+1,r)!=='#'){ctx.moveTo(x+T-1,y);ctx.lineTo(x+T-1,y+T)}
+        ctx.stroke();ctx.globalAlpha=0.12+pulse*0.1;ctx.fillStyle=lv.color;ctx.fillRect(x+T*0.25,y+T*0.25,T*0.5,T*0.5);ctx.globalAlpha=1;
+      }else if(ch==='^'||ch==='v'){
+        const up=ch==='^';ctx.fillStyle='#1b1030';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();
+        if(up){ctx.moveTo(x+T*0.08,y+T);ctx.lineTo(x+T/2,y+T*0.1);ctx.lineTo(x+T*0.92,y+T)}else{ctx.moveTo(x+T*0.08,y);ctx.lineTo(x+T/2,y+T*0.9);ctx.lineTo(x+T*0.92,y)}
+        ctx.closePath();ctx.fill();ctx.stroke();
+        ctx.fillStyle=lv.color;ctx.globalAlpha=0.5;ctx.beginPath();if(up){ctx.moveTo(x+T*0.3,y+T);ctx.lineTo(x+T/2,y+T*0.5);ctx.lineTo(x+T*0.7,y+T)}else{ctx.moveTo(x+T*0.3,y);ctx.lineTo(x+T/2,y+T*0.5);ctx.lineTo(x+T*0.7,y)}ctx.fill();ctx.globalAlpha=1;
+      }else if(ch==='='||ch==='~'){
+        ctx.fillStyle='#ffd166';ctx.beginPath();if(ch==='=')ctx.ellipse(x+T/2,y+T,T*0.45,T*0.28,0,Math.PI,0);else ctx.ellipse(x+T/2,y,T*0.45,T*0.28,0,0,Math.PI);ctx.fill();
+        ctx.fillStyle='rgba(255,209,102,'+(0.25*pulse)+')';ctx.fillRect(x,ch==='='?y:y,T,T);
+      }else if(ch==='o'||ch==='b'){
+        const col=ch==='o'?'#ffd166':'#5cc8ff';const rad=T*(0.34+0.05*pulse);
+        ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.arc(x+T/2,y+T/2,rad,0,TAU);ctx.stroke();
+        ctx.fillStyle=col;ctx.globalAlpha=0.35;ctx.beginPath();ctx.arc(x+T/2,y+T/2,rad*0.6,0,TAU);ctx.fill();ctx.globalAlpha=1;
+        ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x+T/2,y+T/2,rad+T*0.12*(1-beat),0,TAU);ctx.stroke();
+      }else if(ch==='*'){
+        const id=L.ids[c+','+r],got=st.coins&(1<<id);drawStar(x+T/2,y+T/2+Math.sin(t*3+c)*T*0.06,T*0.32,got?'rgba(255,255,255,.25)':'#ffd166');
+      }
+    }
+    const tr=L.trig[c];if(tr)for(const p of tr)drawPortal(c,p,t);
+  }
+  // 练习存档点
+  if(practice)for(const cp of checkpoints){const x=sx(cp.x),y=sy(cp.bodies[0].y);if(x<-T||x>W+T)continue;ctx.fillStyle='#80ed99';ctx.beginPath();ctx.moveTo(x,y-T*0.3);ctx.lineTo(x+T*0.2,y);ctx.lineTo(x,y+T*0.3);ctx.lineTo(x-T*0.2,y);ctx.fill()}
+  // 尝试次数
+  const ax=sx(4);if(ax>-W){ctx.fillStyle='rgba(255,255,255,.85)';ctx.font='bold '+Math.round(T*0.8)+'px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText('第 '+attempt+' 次尝试',ax,sy(5.2));ctx.font=Math.round(T*0.42)+'px sans-serif';ctx.fillStyle='rgba(255,255,255,.6)';ctx.fillText(lv.name+' · '+lv.sub,ax,sy(4.2))}
+  // 粒子
+  for(const p of parts){ctx.globalAlpha=Math.min(1,p.t*2.5);ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(sx(p.x),sy(p.y),p.r*T,0,TAU);ctx.fill()}ctx.globalAlpha=1;
+  // 团子
+  if(mode!=='dead')st.bodies.forEach((b,i)=>drawDango(sx(st.x),sy(b.y),b.s,vis[i]||{rot:0,sq:1},PLAYER_COLORS[i]||'#fff',i));
+  // 双生连线
+  if(st.twin&&mode!=='dead'){ctx.strokeStyle='rgba(128,237,153,.35)';ctx.setLineDash([4,6]);ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(sx(st.x),sy(st.bodies[0].y));ctx.lineTo(sx(st.x),sy(st.bodies[1].y));ctx.stroke();ctx.setLineDash([])}
+  drawHUD();
+}
+function drawStar(x,y,r,c){ctx.fillStyle=c;ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rad=i%2?r*0.45:r;ctx.lineTo(x+Math.cos(a)*rad,y+Math.sin(a)*rad)}ctx.closePath();ctx.fill()}
+function drawPortal(c,p,t){
+  const x=sx(c+0.5);
+  const conf={G:['#5cc8ff','重力↑'],g:['#ff7ac8','重力↓'],'>':['#ff5c5c','加速'],'<':['#5c9cff','减速'],'|':['#ffffff',''],T:['#80ed99','双生'],t:['#80ed99','']}[p.ch];
+  if(!conf)return;const col=conf[0];
+  let cy,hh;if(p.ch==='T'||p.ch==='t'){cy=p.r+0.5;hh=4.5}else{cy=p.r+1.5;hh=1.6}
+  ctx.strokeStyle=col;ctx.lineWidth=4;ctx.globalAlpha=0.85;ctx.beginPath();ctx.ellipse(x,sy(cy),T*0.32,hh*T,0,0,TAU);ctx.stroke();
+  ctx.globalAlpha=0.18;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
+  if(conf[1]){ctx.fillStyle=col;ctx.font='bold '+Math.round(T*0.36)+'px sans-serif';ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText(conf[1],x,sy(cy+hh)-4)}
+  if(p.ch==='>'||p.ch==='<'){ctx.fillStyle=col;const d=p.ch==='>'?1:-1;for(let k=0;k<2;k++){const ox=x+(k*0.35-0.15)*T*d;ctx.beginPath();ctx.moveTo(ox-T*0.12*d,sy(cy)-T*0.2);ctx.lineTo(ox+T*0.12*d,sy(cy));ctx.lineTo(ox-T*0.12*d,sy(cy)+T*0.2);ctx.fill()}}
+}
+function drawDango(x,y,s,v,col,i){
+  const r=T*0.44;ctx.save();ctx.translate(x,y);
+  ctx.scale(1/(v.sq*0.6+0.4),v.sq);if(s<0)ctx.scale(1,-1);
+  ctx.rotate(v.rot*s);
+  ctx.shadowColor=col;ctx.shadowBlur=12;
+  ctx.fillStyle=col;ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();ctx.shadowBlur=0;
+  ctx.fillStyle=i?'#5ac98a':'#ff9fb2';ctx.beginPath();ctx.arc(0,r*0.55,r*0.62,0.15*Math.PI,0.85*Math.PI);ctx.fill();
+  ctx.fillStyle='#2a1838';ctx.beginPath();ctx.arc(-r*0.32,-r*0.08,r*0.11,0,TAU);ctx.arc(r*0.32,-r*0.08,r*0.11,0,TAU);ctx.fill();
+  ctx.fillStyle='rgba(255,110,150,.55)';ctx.beginPath();ctx.arc(-r*0.55,r*0.15,r*0.12,0,TAU);ctx.arc(r*0.55,r*0.15,r*0.12,0,TAU);ctx.fill();
+  ctx.strokeStyle='#2a1838';ctx.lineWidth=Math.max(1.5,r*0.07);ctx.beginPath();ctx.arc(0,r*0.08,r*0.12,0.1*Math.PI,0.9*Math.PI);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.7)';ctx.beginPath();ctx.arc(-r*0.4,-r*0.5,r*0.14,0,TAU);ctx.fill();
+  ctx.restore();
+}
+function drawHUD(){
+  const pct=st.x/cur.L.end,bw=Math.min(360,W*0.5),bx=(W-bw)/2,by=14+safeT;
+  ctx.fillStyle='rgba(0,0,0,.35)';rr(bx,by,bw,10,5);ctx.fill();
+  ctx.fillStyle=cur.lv.color;rr(bx,by,Math.max(10,bw*Math.min(1,pct)),10,5);ctx.fill();
+  const best=cur.daily?(save.daily.key===todayKey()?save.daily.best||0:0):lvSave(cur.lv.id).best;
+  if(best>0&&best<100){ctx.fillStyle='#fff';ctx.fillRect(bx+bw*best/100-1,by-3,2,16)}
+  ctx.fillStyle='#fff';ctx.font='bold 14px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(Math.floor(Math.min(1,pct)*100)+'%'+(practice?' · 练习':''),W/2,by+16);
+  if(H>W*1.1){ctx.fillStyle='rgba(255,255,255,.55)';ctx.font='14px sans-serif';ctx.textAlign='center';ctx.fillText('📱 横过来玩，视野更大',W/2,by+44)}
+  ctx.textAlign='left';const n=bits(st.coins);for(let i=0;i<3;i++)drawStar(18+i*22,by+6,8,i<n?'#ffd166':'rgba(255,255,255,.25)');
+}
+function drawMenuDecor(t){
+  const y=H*0.86;ctx.fillStyle='rgba(10,6,24,.5)';ctx.fillRect(0,y,W,H-y);
+  const bounce=Math.abs(Math.sin(t*3.2));drawDango(W*0.5,y-T*0.44-bounce*T*1.6,1,{rot:Math.sin(t*3.2)*0.3,sq:1-0.25*(1-bounce)*(bounce<0.15?1:0)},'#ffe3ec',0);
+}
+
+/* ---------- 主循环 ---------- */
+let last=performance.now();
+function frame(now){const dt=Math.min(0.1,(now-last)/1000);last=now;if(mode!=='pause'&&mode!=='menu'&&mode!=='win')update(dt);else if(mode==='menu')beat=1-((now/1000*2)%1);draw();requestAnimationFrame(frame)}
+openMenu();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
