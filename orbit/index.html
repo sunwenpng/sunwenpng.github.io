@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d1117">
+<title>换轨</title>
+<meta name="description" content="一个只用一个按键的小游戏：点一下换轨道，躲开障碍，吃宝石连击。">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #0d1117;
+    color: #eef2f5;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+  }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #panel {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+    background: rgba(13, 17, 23, .72);
+    pointer-events: none;
+    transition: opacity .15s;
+  }
+  #panel.hidden { opacity: 0; }
+  #title { margin: 0; font-size: 52px; line-height: 1.15; font-weight: 700; }
+  #sub { margin: 0; font-size: 18px; color: #aeb9c2; line-height: 1.6; }
+  #record { min-height: 24px; font-size: 16px; font-weight: 600; color: #ffd166; }
+  #go { margin-top: 14px; font-size: 16px; color: #5ce1e6; }
+  #mute {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #36404a;
+    border-radius: 8px;
+    background: rgba(13, 17, 23, .6);
+    color: #eef2f5;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #best { position: fixed; top: 22px; left: 16px; font-size: 15px; color: #aeb9c2; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="best"></div>
+<div id="panel">
+  <h1 id="title">换轨</h1>
+  <p id="sub">点一下换轨道<br>躲开红色障碍，吃黄色宝石连击</p>
+  <div id="record"></div>
+  <div id="go">点击屏幕或按空格开始</div>
+</div>
+<button id="mute" type="button" aria-label="开关声音">声音</button>
+
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const panel = document.getElementById('panel');
+const titleEl = document.getElementById('title');
+const subEl = document.getElementById('sub');
+const recordEl = document.getElementById('record');
+const goEl = document.getElementById('go');
+const bestEl = document.getElementById('best');
+const muteBtn = document.getElementById('mute');
+
+const TAU = Math.PI * 2;
+const SWITCH_TIME = 0.085;
+const NEAR_MISS_WINDOW = 0.22;
+const MAX_COMBO = 9;
+const calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let W = 0, H = 0, cx = 0, cy = 0, pr = 8;
+let radii = [100, 70];
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = W / 2;
+  cy = H / 2;
+  const m = Math.min(W, H);
+  radii = [m * 0.40, m * 0.27];
+  pr = Math.max(7, m * 0.019);
+}
+
+function loadBest() {
+  try { return Number(localStorage.getItem('orbit-switch-best')) || 0; } catch (e) { return 0; }
+}
+function saveBest(v) {
+  try { localStorage.setItem('orbit-switch-best', String(v)); } catch (e) { /* 无痕模式下可能不可用 */ }
+}
+
+const G = {
+  mode: 'menu', a: 0, t: 0, track: 0, f: 0, items: [], next: 0,
+  score: 0, combo: 1, lastSwitch: -9, shake: 0, flash: 0, overAt: 0,
+  run: 0, lastTrack: 0, best: loadBest(), parts: [], trail: [], pops: [],
+};
+
+function speed(t) { return 1.7 + 2.9 * (1 - Math.exp(-t / 70)); }
+function radiusAt(f) { return radii[0] + (radii[1] - radii[0]) * f; }
+
+function start() {
+  Object.assign(G, {
+    mode: 'play', a: -Math.PI / 2, t: 0, track: 0, f: 0, items: [],
+    score: 0, combo: 1, lastSwitch: -9, shake: 0, flash: 0, run: 0,
+    parts: [], trail: [], pops: [],
+  });
+  G.next = G.a + 2.6;
+  spawn();
+  panel.classList.add('hidden');
+}
+
+function spawn() {
+  while (G.next < G.a + 4.4) {
+    const ahead = (G.next - G.a) / speed(G.t);
+    const w = speed(G.t + ahead);
+    const k = Math.min((G.t + ahead) / 80, 1);
+    let track;
+    if (G.run > 0) {
+      track = G.lastTrack;
+      G.run--;
+    } else {
+      track = Math.random() < 0.6 ? 1 - G.lastTrack : G.lastTrack;
+      if (Math.random() < 0.18) G.run = 1 + Math.floor(Math.random() * 2);
+    }
+    G.lastTrack = track;
+    G.items.push({ kind: 'block', a: G.next, track, done: false });
+    if (Math.random() < 0.6) G.items.push({ kind: 'gem', a: G.next, track: 1 - track, done: false });
+    G.next += (0.66 - 0.3 * k) * (1 + Math.random() * 0.5) * w;
+  }
+}
+
+function tap() {
+  if (G.mode === 'play') {
+    G.track = 1 - G.track;
+    G.lastSwitch = G.t;
+    sound(G.track ? 330 : 262, 0.05, 'triangle', 0.05);
+  } else if (G.mode === 'pause') {
+    G.mode = 'play';
+    panel.classList.add('hidden');
+  } else if (G.mode === 'menu' || (G.mode === 'over' && now() - G.overAt > 350)) {
+    start();
+  }
+}
+
+function now() { return performance.now(); }
+
+function pop(text, x, y, color) { G.pops.push({ text, x, y, color, life: 0.8 }); }
+
+function burst(x, y, color, n, power) {
+  for (let i = 0; i < n; i++) {
+    const d = Math.random() * TAU;
+    const v = power * (0.4 + Math.random());
+    G.parts.push({ x, y, vx: Math.cos(d) * v, vy: Math.sin(d) * v, life: 0.5 + Math.random() * 0.3, color });
+  }
+}
+
+function itemPos(it) {
+  const r = radii[it.track];
+  return [cx + Math.cos(it.a) * r, cy + Math.sin(it.a) * r];
+}
+
+function playerPos() {
+  const r = radiusAt(G.f);
+  return [cx + Math.cos(G.a) * r, cy + Math.sin(G.a) * r];
+}
+
+function die() {
+  G.mode = 'over';
+  G.overAt = now();
+  G.shake = 14;
+  const [x, y] = playerPos();
+  burst(x, y, '#ff5d6c', 34, 240);
+  sound(110, 0.3, 'sawtooth', 0.09);
+  const isRecord = G.score > G.best;
+  if (isRecord) {
+    G.best = G.score;
+    saveBest(G.best);
+  }
+  titleEl.textContent = String(G.score);
+  subEl.textContent = '最高分 ' + G.best;
+  recordEl.textContent = isRecord ? '新纪录！' : (G.best - G.score <= 10 ? '就差 ' + (G.best - G.score + 1) + ' 分破纪录' : '');
+  goEl.textContent = '点击屏幕再来一局';
+  panel.classList.remove('hidden');
+}
+
+function step(dt) {
+  G.shake = Math.max(0, G.shake - dt * 40);
+  G.flash = Math.max(0, G.flash - dt * 3);
+  for (const p of G.parts) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.96;
+    p.vy *= 0.96;
+    p.life -= dt;
+  }
+  G.parts = G.parts.filter(p => p.life > 0);
+  for (const p of G.pops) {
+    p.y -= 40 * dt;
+    p.life -= dt;
+  }
+  G.pops = G.pops.filter(p => p.life > 0);
+  if (G.mode !== 'play') return;
+
+  G.t += dt;
+  G.a += speed(G.t) * dt;
+  const dir = G.track - G.f;
+  G.f += Math.sign(dir) * Math.min(Math.abs(dir), dt / SWITCH_TIME);
+
+  const [px, py] = playerPos();
+  G.trail.push([px, py]);
+  if (G.trail.length > 16) G.trail.shift();
+
+  for (const it of G.items) {
+    if (it.done) continue;
+    const [ix, iy] = itemPos(it);
+    const dist = Math.hypot(px - ix, py - iy);
+    if (it.kind === 'block') {
+      if (dist < pr * 1.75) {
+        die();
+        return;
+      }
+      if (G.a > it.a + 0.14) {
+        it.done = true;
+        G.score += 1;
+        if (G.t - G.lastSwitch < NEAR_MISS_WINDOW && G.track !== it.track) {
+          G.score += 2;
+          G.flash = 0.5;
+          pop('极限 +3', px, py - 18, '#5ce1e6');
+          sound(880, 0.08, 'sine', 0.06);
+        }
+      }
+    } else {
+      if (dist < pr * 2.1) {
+        it.done = true;
+        it.got = true;
+        G.score += G.combo;
+        pop('+' + G.combo, ix, iy - 14, '#ffd166');
+        burst(ix, iy, '#ffd166', 10, 120);
+        sound(392 * Math.pow(1.122, G.combo), 0.09, 'sine', 0.07);
+        G.combo = Math.min(G.combo + 1, MAX_COMBO);
+      } else if (G.a > it.a + 0.14) {
+        it.done = true;
+        G.combo = 1;
+      }
+    }
+  }
+  G.items = G.items.filter(it => G.a < it.a + 0.3 && !it.got);
+  spawn();
+}
+
+function draw() {
+  const hue = (195 + G.t * 2.4) % 360;
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  if (G.shake > 0 && !calm) {
+    ctx.translate((Math.random() - 0.5) * G.shake, (Math.random() - 0.5) * G.shake);
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'hsla(' + hue + ',55%,60%,' + (0.35 + G.flash * 0.5) + ')';
+  for (const r of radii) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.stroke();
+  }
+
+  for (const it of G.items) {
+    if (it.done) continue;
+    const [x, y] = itemPos(it);
+    const fade = Math.max(0, Math.min(1, (G.a + 4.4 - it.a) / 0.5));
+    ctx.globalAlpha = fade;
+    if (it.kind === 'block') {
+      const s = pr * 1.15;
+      ctx.fillStyle = '#ff5d6c';
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(it.a + Math.PI / 4);
+      ctx.fillRect(-s, -s, s * 2, s * 2);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.arc(x, y, pr * 0.72, 0, TAU);
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  G.trail.forEach(([x, y], i) => {
+    ctx.globalAlpha = (i / G.trail.length) * 0.35;
+    ctx.fillStyle = 'hsl(' + hue + ',80%,70%)';
+    ctx.beginPath();
+    ctx.arc(x, y, pr * (i / G.trail.length), 0, TAU);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  if (G.mode === 'play' || G.mode === 'pause') {
+    const [x, y] = playerPos();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x, y, pr, 0, TAU);
+    ctx.fill();
+  }
+
+  for (const p of G.parts) {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 2));
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  if (G.mode === 'play') {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#eef2f5';
+    ctx.font = '700 ' + Math.round(radii[1] * 0.62) + 'px -apple-system, "PingFang SC", sans-serif';
+    ctx.fillText(String(G.score), cx, cy - radii[1] * 0.08);
+    if (G.combo > 1) {
+      ctx.fillStyle = '#ffd166';
+      ctx.font = '600 ' + Math.round(radii[1] * 0.2) + 'px -apple-system, "PingFang SC", sans-serif';
+      ctx.fillText('连击 ×' + G.combo, cx, cy + radii[1] * 0.42);
+    }
+  }
+
+  ctx.font = '600 16px -apple-system, "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  for (const p of G.pops) {
+    ctx.globalAlpha = Math.min(1, p.life * 2);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  bestEl.textContent = G.best > 0 ? '最高分 ' + G.best : '';
+}
+
+let audio = null;
+let muted = false;
+
+function sound(freq, dur, type, vol) {
+  if (muted) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    audio = audio || new AC();
+    if (audio.state === 'suspended') audio.resume();
+    const t = audio.currentTime;
+    const osc = audio.createOscillator();
+    const gain = audio.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(t);
+    osc.stop(t + dur);
+  } catch (e) { /* 没有声音也能玩 */ }
+}
+
+window.addEventListener('pointerdown', e => {
+  if (e.target === muteBtn) return;
+  e.preventDefault();
+  tap();
+});
+window.addEventListener('keydown', e => {
+  if (e.repeat) return;
+  if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+    e.preventDefault();
+    tap();
+  }
+});
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '静音' : '声音';
+  muteBtn.blur();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && G.mode === 'play') {
+    G.mode = 'pause';
+    titleEl.textContent = '暂停';
+    subEl.textContent = '当前 ' + G.score + ' 分';
+    recordEl.textContent = '';
+    goEl.textContent = '点击屏幕继续';
+    panel.classList.remove('hidden');
+  }
+});
+window.addEventListener('resize', resize);
+
+let last = 0;
+function frame(ts) {
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+  step(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+resize();
+requestAnimationFrame(ts => { last = ts; frame(ts); });
+</script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache">
+<meta name="theme-color" content="#0b1020">
+<title>游戏大厅</title>
+<link rel="apple-touch-icon" href="xingyun/apple-touch-icon.png">
+<style>
+:root{--bg:#0b1020;--card:#141c33;--card2:#1b2542;--line:rgba(170,195,255,.14);--fg:#eef2fb;--muted:#93a0bb;--gold:#f2c35b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top,0px) + 28px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 28px) max(16px,env(safe-area-inset-left,0px));
+  background:radial-gradient(ellipse at 50% -10%,#24325e 0,rgba(36,50,94,0) 60%),var(--bg);min-height:100vh}
+main{max-width:980px;margin:0 auto}
+h1{font-size:30px;margin:0 0 4px;letter-spacing:.04em}
+.lead{color:var(--muted);margin:0 0 22px;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+a.game{display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;transition:transform .15s,background .15s}
+a.game:active{transform:scale(.98)}
+@media (hover:hover){a.game:hover{background:var(--card2);transform:translateY(-2px)}}
+.ic{flex:0 0 72px;height:72px;border-radius:18px;display:grid;place-items:center;font-size:30px;font-weight:800;color:#fff;box-shadow:inset 0 -6px 0 rgba(0,0,0,.18)}
+.ic img{width:100%;height:100%;border-radius:18px;display:block}
+.t{min-width:0}
+.t b{display:block;font-size:18px;margin-bottom:2px}
+.tag{display:inline-block;font-size:11px;color:var(--gold);border:1px solid rgba(242,195,91,.35);border-radius:999px;padding:1px 8px;margin-bottom:5px}
+.t p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.feat{grid-column:1/-1}
+.feat .ic{flex-basis:92px;height:92px}
+.feat b{font-size:22px}
+.tip{margin-top:22px;color:var(--muted);font-size:12px;line-height:1.6;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+</style></head>
+<body><main>
+<h1>游戏大厅</h1>
+<p class="lead">点一下就能玩，手机和电脑都行，不用下载。</p>
+<div class="grid">
+  <a class="game feat" href="xingyun/"><div class="ic"><img src="xingyun/icon-192.png" alt=""></div><div class="t"><span class="tag">横屏 · 3D · 5V5</span><b>星陨峡谷</b><p>原创手机 MOBA：9 位英雄、三路推塔、打野和大龙，支持作弊面板。</p></div></a>
+  <a class="game" href="temple-yard/"><div class="ic" style="background:linear-gradient(135deg,#c98a4b,#7a4a22)">寺</div><div class="t"><span class="tag">治愈 · 养成</span><b>山寺小院</b><p>敲木鱼、撞钟、礼佛诵经，收留受伤的小动物。</p></div></a>
+  <a class="game" href="temple-yard-v4/"><div class="ic" style="background:linear-gradient(135deg,#e0b066,#8f5b2a)">新</div><div class="t"><span class="tag">新版 v4</span><b>山寺小院 v4</b><p>新手引导、常驻目标、存档备份和存档码。</p></div></a>
+  <a class="game" href="threshold/"><div class="ic" style="background:linear-gradient(135deg,#7a6bd6,#3a2f7d)">扉</div><div class="t"><span class="tag">平台 · 多版本</span><b>启扉 Threshold</b><p>多信仰文化体验平台，可选传统、语言和诵读声音。</p></div></a>
+  <a class="game" href="sky-breakout/"><div class="ic" style="background:linear-gradient(135deg,#4aa3ff,#1d4f85)">云</div><div class="t"><span class="tag">射击 · 3D</span><b>云霄突围</b><p>自动开火，拖动躲弹幕，一路升级击落旗舰。</p></div></a>
+  <a class="game" href="orbit/"><div class="ic" style="background:linear-gradient(135deg,#ff7a6b,#9a2f4f)">轨</div><div class="t"><span class="tag">一键 · 休闲</span><b>换轨</b><p>点一下切换轨道，躲开障碍、吃宝石连击。</p></div></a>
+</div>
+<div class="tip">想全屏玩：iPhone 用 Safari 打开游戏 → 点「分享」→「添加到主屏幕」，以后从桌面图标打开就没有地址栏。安卓 Chrome 在游戏里点右上角 ⛶ 即可全屏。</div>
+</main></body></html>
