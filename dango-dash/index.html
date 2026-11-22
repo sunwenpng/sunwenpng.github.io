@@ -64,7 +64,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px}
     <h1>节奏团子</h1>
     <p class="sub">跟着节拍跳！点一下跳，按住连跳。<br>新玩法「双生」：上下两只团子同时听你一个指令。</p>
     <div class="levels" id="levelList"></div>
-    <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" id="btnSfx">音效：开</button></div>
+    <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" id="btnSfx">音效：开</button><button class="btn small" id="btnUnlock" style="background:linear-gradient(135deg,#f5a524,#e0457b);border-color:transparent">🔓 免费解锁全部关卡</button></div>
     <div class="hint" id="rotHint">手机横屏玩视野更大。电脑：空格 / 方向上 / 鼠标点击 跳跃，P 暂停。</div>
   </div>
 </div>
@@ -273,6 +273,7 @@ function safeHere(){return K.solve(cur.L,{init:K.clone(st),horizon:45,maxWidth:4
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='play')openPause()});
 function toggleMusic(){initAudio();save.music=save.music?0:1;persist();applyAudio()}
 function toggleSfx(){initAudio();save.sfx=save.sfx?0:1;persist();applyAudio()}
+$('btnUnlock').onclick=()=>{initAudio();save.unlockAll=1;persist();sfx('win');openMenu()};
 $('btnMusic').onclick=toggleMusic;$('btnMusic2').onclick=toggleMusic;$('btnSfx').onclick=toggleSfx;$('btnSfx2').onclick=toggleSfx;
 
 /* ---------- 菜单 ---------- */
@@ -287,13 +288,14 @@ function openMenu(){
   list.appendChild(db);
   K.LEVELS.forEach((lv,i)=>{
     const s=lvSave(lv.id);total+=bits(s.stars);
-    const unlocked=i===0||lvSave(K.LEVELS[i-1].id).done;
+    const unlocked=save.unlockAll||i===0||lvSave(K.LEVELS[i-1].id).done;
     const b=document.createElement('button');b.className='lv'+(unlocked?'':' lock')+(s.done?' done':'');b.style.setProperty('--c',lv.color);
     b.innerHTML='<span class="num">第 '+lv.id+' 关'+(lv.id===6?' · 新玩法':'')+'</span><b>'+(unlocked?lv.name:'🔒 '+lv.name)+'</b><div class="st">'+'★'.repeat(bits(s.stars))+'☆'.repeat(3-bits(s.stars))+'</div><div class="pct">'+(s.done?'已通关':'最佳 '+s.best+'%')+(s.attempts?' · '+s.attempts+' 次':'')+'</div><div class="bar" style="width:'+s.best+'%"></div>';
     b.onclick=()=>{sfx('click');if(!unlocked){b.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'none'}],{duration:220});return}startLevel(lv)};
     list.appendChild(b);
   });
   $('totalStars').textContent=total+' / '+K.LEVELS.length*3;
+  $('btnUnlock').classList.toggle('hide',!!save.unlockAll);
 }
 
 /* ---------- 更新 ---------- */
