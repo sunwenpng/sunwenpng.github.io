@@ -108,6 +108,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px;font-weight:900;text-shadow:
 </div>
 
 <script src="../lib/three.min.js"></script>
+<script src="../lib/music.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -155,7 +156,7 @@ const THEMES={
 /* ============ 音频 ============ */
 let AC=null,master,musicBus,sfxBus,noiseBuf,mus=null;
 function initAudio(){if(AC){if(AC.state==='suspended')AC.resume();return}try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return}master=AC.createGain();master.connect(AC.destination);musicBus=AC.createGain();musicBus.gain.value=save.music?0.2:0;musicBus.connect(master);sfxBus=AC.createGain();sfxBus.gain.value=save.sfx?0.55:0;sfxBus.connect(master);noiseBuf=AC.createBuffer(1,AC.sampleRate*0.5,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}
-function applyAudio(){if(musicBus)musicBus.gain.value=save.music?0.2:0;if(sfxBus)sfxBus.gain.value=save.sfx?0.55:0;for(const id of['tMusic','tMusic2'])$(id).textContent='音乐：'+(save.music?'开':'关');for(const id of['tSfx','tSfx2'])$(id).textContent='音效：'+(save.sfx?'开':'关');$('tQual').textContent='画质：'+(save.hq?'高':'流畅')}
+function applyAudio(){GameMusic.setEnabled(!!save.music);if(musicBus)musicBus.gain.value=save.music?0.2:0;if(sfxBus)sfxBus.gain.value=save.sfx?0.55:0;for(const id of['tMusic','tMusic2'])$(id).textContent='音乐：'+(save.music?'开':'关');for(const id of['tSfx','tSfx2'])$(id).textContent='音效：'+(save.sfx?'开':'关');$('tQual').textContent='画质：'+(save.hq?'高':'流畅')}
 function tone(f,d,type,v,slide,when){if(!AC)return;const t=when||AC.currentTime;const o=AC.createOscillator(),g=AC.createGain();o.type=type||'square';o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+d);g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(v,t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(g);g.connect(sfxBus);o.start(t);o.stop(t+d+0.02)}
 function noise(d,v,f,when){if(!AC)return;const t=when||AC.currentTime;const s=AC.createBufferSource();s.buffer=noiseBuf;const fl=AC.createBiquadFilter();fl.type='lowpass';fl.frequency.value=f||1200;const g=AC.createGain();g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.0001,t+d);s.connect(fl);fl.connect(g);g.connect(sfxBus);s.start(t);s.stop(t+d+0.02)}
 function sfx(n){if(!AC)return;const now=AC.currentTime;switch(n){
@@ -181,7 +182,11 @@ const SONGS=[
   {bpm:120,prog:[[62,66,69],[67,71,74],[64,67,71],[69,73,76]],mel:[19,null,null,21,19,16,null,14,16,null,19,null,21,null,null,null],wave:'triangle'},
   {bpm:132,prog:[[57,60,64],[53,57,60],[52,56,59],[57,60,64]],mel:[12,15,12,null,11,null,12,null,15,17,15,null,12,null,null,null],wave:'square'},
 ];
-function startMusic(si){
+const LV_MUSIC={'1-1':'stage1','1-2':'level1','1-3':'stage2','2-1':'sky','2-2':'castle','2-3':'boss'};
+GameMusic.setVolume(0.55);GameMusic.setEnabled(!!save.music);
+function startMusic(){if(level)GameMusic.play('music/'+(LV_MUSIC[level.id]||'stage1')+'.m4a',{fade:0.4})}
+function stopMusic(){GameMusic.pause()}
+function startSynthMusic(si){
   stopMusic();if(!AC)return;const S=SONGS[si||0];const g=AC.createGain();g.connect(musicBus);const spb=60/S.bpm/2;mus={g,t0:AC.currentTime+0.05,step:0};
   mus.timer=setInterval(()=>{if(!mus)return;while(mus.t0+mus.step*spb<AC.currentTime+0.2){const t=mus.t0+mus.step*spb,i=mus.step,ch=S.prog[Math.floor(i/8)%4];const mt=m=>440*Math.pow(2,(m-69)/12);
     const nt=(f,d,type,v)=>{const o=AC.createOscillator(),gg=AC.createGain();o.type=type;o.frequency.value=f;gg.gain.setValueAtTime(0.0001,t);gg.gain.exponentialRampToValueAtTime(v,t+0.01);gg.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(gg);gg.connect(g);o.start(t);o.stop(t+d+0.05)};
@@ -191,7 +196,7 @@ function startMusic(si){
     if(i%4===0){const s=AC.createBufferSource();s.buffer=noiseBuf;const f=AC.createBiquadFilter();f.type='highpass';f.frequency.value=5000;const gg=AC.createGain();gg.gain.setValueAtTime(0.08,t);gg.gain.exponentialRampToValueAtTime(0.001,t+0.05);s.connect(f);f.connect(gg);gg.connect(g);s.start(t);s.stop(t+0.06)}
     mus.step++}},40);
 }
-function stopMusic(){if(!mus)return;clearInterval(mus.timer);try{mus.g.gain.setTargetAtTime(0,AC.currentTime,0.05);const g=mus.g;setTimeout(()=>g.disconnect(),500)}catch(_){}mus=null}
+function stopSynthMusic(){if(!mus)return;clearInterval(mus.timer);try{mus.g.gain.setTargetAtTime(0,AC.currentTime,0.05);const g=mus.g;setTimeout(()=>g.disconnect(),500)}catch(_){}mus=null}
 
 /* ============ 关卡构建 ============ */
 let level=null,world=null,TH=THEMES.grass;
@@ -607,7 +612,7 @@ function bossHit(e){
 }
 function winLevel(){
   me.win=true;const gl=level.goal;me.x=gl.x;me.z=gl.z+0.35;const h=clamp((me.y-gl.base)/8,0,1);
-  const bonus=Math.round(h*10)*100;stopMusic();sfx('clear');clearT=0;me.slide=true;
+  const bonus=Math.round(h*10)*100;GameMusic.stop();GameMusic.jingle('music/victory.m4a');sfx('clear');clearT=0;me.slide=true;
   const rec=save.lv[level.id]||(save.lv[level.id]={stars:0,best:0,done:false});
   for(const s of level.stars)if(s.got)rec.stars|=1<<s.id;
   rec.done=true;if(!rec.best||lvT<rec.best)rec.best=lvT;persist();
@@ -618,7 +623,7 @@ function winLevel(){
     $('cStars').textContent='★'.repeat(all)+'☆'.repeat(3-all);
     $('cStats').innerHTML=[['本次星星',got+' / 3'],['金币',coins],['旗杆高度',Math.round(h*100)+'%'],['用时',lvT.toFixed(1)+'s'],['剩余命',lives]].map(s=>'<div><small>'+s[0]+'</small><b>'+s[1]+'</b></div>').join('');
     $('cNext').classList.toggle('hide',lvIdx>=LEVELS.length-1);
-    showScreen('clear');
+    showScreen('clear');if(level.id==='2-3')GameMusic.play('music/ending.m4a',{fade:0.3});
   },2600);
 }
 
@@ -679,7 +684,7 @@ function drawHUD(dt){
 /* ============ 界面 ============ */
 function showScreen(id){for(const s of['menu','pause','clear'])$(s).hidden=s!==id}
 function openMenu(){
-  state='menu';stopMusic();$('ctrl').classList.add('hide');showScreen('menu');applyAudio();
+  state='menu';GameMusic.play('music/select.m4a',{fade:0.5});$('ctrl').classList.add('hide');showScreen('menu');applyAudio();
   const wl=$('worlds');wl.innerHTML='';let total=0;
   WORLDS.forEach(w=>{const d=document.createElement('div');d.className='world';d.innerHTML='<h3>'+w.name+'</h3>';const g=document.createElement('div');g.className='lvls';
     for(const i of w.lv){const L=LEVELS[i],rec=save.lv[L.id]||{stars:0};total+=bits(rec.stars);const unlocked=save.unlockAll||i===0||(save.lv[LEVELS[i-1].id]||{}).done;

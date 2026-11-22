@@ -162,6 +162,7 @@ a.back{color:var(--muted);font-size:13px;text-decoration:none;display:block;text
 </div>
 
 <script src="../lib/three.min.js"></script>
+<script src="../lib/music.js"></script>
 <script>
 'use strict';
 /* ================= 基础 ================= */
@@ -348,9 +349,12 @@ function musicTick(){
     musicNext+=spb;musicStep++;
   }
 }
-function startMusic(){if(!AC||musicTimer)return;musicNext=AC.currentTime+0.05;musicTimer=setInterval(musicTick,50)}
-function stopMusic(){clearInterval(musicTimer);musicTimer=null}
+/* 背景音乐改用真实 CC0 曲目（见 music/CREDITS.md），程序化配乐保留作备用 */
+function startMusic(){GameMusic.play('music/battle.m4a',{fade:0.8})}
+function stopMusic(){GameMusic.pause()}
+GameMusic.setVolume(0.55);GameMusic.setEnabled(!!save.music);
 function applyAudioPrefs(){
+  GameMusic.setEnabled(!!save.music);
   if(musicGain)musicGain.gain.value=save.music?0.16:0;if(sfxGain)sfxGain.gain.value=save.sfx?0.5:0;
   for(const id of ['btnMusic','btnMusic2'])$(id).textContent='音乐：'+(save.music?'开':'关');
   for(const id of ['btnSfx','btnSfx2'])$(id).textContent='音效：'+(save.sfx?'开':'关');
@@ -457,7 +461,7 @@ function spawnElite(){
 function spawnBoss(b){
   const[x,y]=spawnPos(80);const e=makeEnemy('boss',x,y,{def:{hp:b.hp,spd:b.spd,dmg:b.dmg,r:b.r,xp:0,shape:b.shape,color:b.color}});
   e.hp=b.hp*run.stats.ehp;e.maxHp=e.hp;e.dmg=b.dmg;e.boss=b;e.mass=50;e.phase=0;e.atkT=3;e.charge=0;e.tele=0;e.spin=0;
-  enemies.push(e);run.boss=e;musicIntense=1;
+  enemies.push(e);run.boss=e;musicIntense=1;GameMusic.play(b.final?'music/final-boss.m4a':'music/boss.m4a',{fade:1});
   toast('首领来袭：'+b.name,b.color,2.4);cam.shake=12;
 }
 function spawnSwarm(){
@@ -525,7 +529,7 @@ function kill(e){
     for(let i=0;i<30;i++)gems.push({x:e.x+rand(-60,60),y:e.y+rand(-60,60),v:25,vx:0,vy:0,mag:false});
     for(let i=0;i<12;i++)items.push({x:e.x+rand(-50,50),y:e.y+rand(-50,50),type:'coin',v:Math.ceil(e.boss.coins/12)});
     items.push({x:e.x,y:e.y,type:'chest',big:true});
-    run.boss=null;musicIntense=0;toast(e.boss.name+' 已击败！','#ffd166',2.2);
+    run.boss=null;musicIntense=0;if(!e.boss.final)GameMusic.play('music/battle.m4a',{fade:1.5});toast(e.boss.name+' 已击败！','#ffd166',2.2);
     if(e.boss.final){run.won=true;setTimeout(()=>{if(state==='play'||state==='chest'||state==='levelup')endRun(true)},1800)}
     return;
   }
@@ -864,6 +868,7 @@ function showScreen(id){for(const s of ['menu','shopScreen','levelup','chest','p
 
 /* ================= 暂停 / 结算 ================= */
 function openPause(){
+  if(state==='play')GameMusic.pause();
   if(state!=='play')return;state='pause';
   const items=[];for(const id in run.weapons){const w=WEAPONS[id];items.push({name:w.name,icon:w.icon,color:w.color,desc:'等级 '+run.weapons[id]+' / 5'})}
   for(const id in run.passives){const p=PASSIVES[id];items.push({name:p.name,icon:p.icon,color:p.color,desc:'等级 '+run.passives[id]+' / '+p.max})}
@@ -871,7 +876,7 @@ function openPause(){
   $('pauseBuild').innerHTML=statPanel()+dmgPanel()+items.map(i=>'<div class="card" style="min-height:56px;padding:8px 12px">'+cardHTML(i)+'</div>').join('');
   showScreen('pause');
 }
-function resume(){closeOverlay('pause')}
+function resume(){closeOverlay('pause');GameMusic.resume()}
 function statPanel(){
   const S=run.stats,pct=v=>Math.round(v*100)+'%';
   const rows=[['生命',Math.ceil(P.hp)+'/'+S.maxHp],['伤害',pct(S.dmg)],['冷却',pct(S.cd)],['移速',Math.round(S.spd)],['范围',pct(S.area)],['拾取',Math.round(S.magnet)],['护甲',S.armor],['回复',S.regen.toFixed(1)+'/s'],['暴击',pct(S.crit)],['暴伤',pct(S.critMul)],['投射物','+'+S.proj],['经验',pct(S.xp)]];
@@ -885,6 +890,7 @@ function dmgPanel(){
 $('btnResume').onclick=resume;
 $('btnQuit').onclick=()=>endRun(false,true);
 function endRun(win,quit){
+  if(state!=='over')GameMusic.play('music/result.m4a',{fade:0.5});
   if(state==='over')return;state='over';
   for(const e of enemies)if(e.spinT)clearInterval(e.spinT);
   const earned=Math.round(run.coins+run.kills/25+(win?200:0)+Math.floor(run.t/60)*5);
@@ -904,6 +910,7 @@ $('btnMenu').onclick=()=>openMenu();
 
 /* ================= 菜单 / 商店 ================= */
 function openMenu(){
+  GameMusic.play('music/menu.m4a',{fade:0.6});
   state='menu';showScreen('menu');$('hudBtns').classList.add('hide');$('touchBtns').classList.add('hide');
   $('menuCoins').textContent=Math.floor(save.coins);
   const list=$('charList');list.innerHTML='';
@@ -945,7 +952,7 @@ function startGame(){
   $('hudBtns').classList.remove('hide');if(isTouch)$('touchBtns').classList.remove('hide');
   toast('撑过 8 分钟！','#5cf2ff',2);last=performance.now();
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden){if(state==='play')openPause();if(AC)AC.suspend()}else if(AC)AC.resume()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){if(state==='play')openPause();if(AC)AC.suspend()}else{if(AC)AC.resume();if(state==='menu'||state==='over')GameMusic.resume()}});
 
 /* ================= 绘制 ================= */
 function wx(x){return(x-cam.x)*zoom+W/2}
