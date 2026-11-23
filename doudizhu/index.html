@@ -557,6 +557,7 @@ $('bMusic').onclick=()=>{save.music=save.music?0:1;persist();GameMusic.setEnable
 $('beans').textContent=save.beans;$('rec').textContent='战绩 '+save.w+' 胜 '+save.l+' 负 · 欢乐豆 '+save.beans;
 addEventListener('resize',()=>{if(G)renderHand(false)});
 GameMusic.play(PLAYLIST[song]);
+if(!Net.available())$('bOnline').style.display='none';
 NetUI.autoJoin(NET_OPTS);
 </script>
 </body>

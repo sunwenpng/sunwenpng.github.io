@@ -259,6 +259,7 @@ const bn=BoardNet({game:'gomoku',title:'五子棋',firstSide:1,otherSide:2,
   replay:(mv)=>{for(let k=history.length;k<mv.length&&!over;k++){if(!G[mv[k][0]][mv[k][1]])place(mv[k][0],mv[k][1])}},
   onResign:()=>{if(over)return;over=true;finish(meSide,null,'对手认输了')},
   status:t=>toast(t),onClose:()=>openSetup()});
+if(!Net.available()){const ob=document.querySelector('#segMode [data-v=online]');if(ob)ob.remove();if(save.mode==='online'){save.mode='ai';persist()}}
 if(!bn.autoJoin())openSetup();else $('setup').hidden=true;
 (function loop(){kit.render();requestAnimationFrame(loop)})();
 </script>

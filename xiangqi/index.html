@@ -298,6 +298,7 @@ const bn=BoardNet({game:'xiangqi',title:'中国象棋',firstSide:'r',otherSide:'
   replay:(mv)=>{for(let k=hist.length;k<mv.length&&!over;k++){if(legal(B,turn).some(x=>x[0]===mv[k][0]&&x[1]===mv[k][1]))doMove(mv[k][0],mv[k][1])}},
   onResign:()=>{if(over)return;over=true;finish(me,'对手认输了')},
   status:t=>toast(t),onClose:()=>openSetup()});
+if(!Net.available()){const ob=document.querySelector('#segMode [data-v=online]');if(ob)ob.remove();if(save.mode==='online'){save.mode='ai';persist()}}
 if(!bn.autoJoin())openSetup();else $('setup').hidden=true;
 (function loop(){kit.render();requestAnimationFrame(loop)})();
 </script>

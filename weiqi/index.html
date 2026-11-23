@@ -292,6 +292,7 @@ const bn=BoardNet({game:'weiqi',title:'围棋',firstSide:1,otherSide:2,
   extra:(d)=>{if(d&&d.k==='score'&&mode==='online'&&!bn.isHost&&over&&busy)showScore(d.dead,game.score(d.dead))},
   onResign:()=>{if(over)return;over=true;finish({resign:3-me})},
   status:t=>toast(t),onClose:()=>{netSize=0;openSetup()}});
+if(!Net.available()){const ob=document.querySelector('#segMode [data-v=online]');if(ob)ob.remove();if(save.mode==='online'){save.mode='ai';persist()}}
 if(!bn.autoJoin())openSetup();else $('setup').hidden=true;
 (function loop(){kit.render();requestAnimationFrame(loop)})();
 </script>
