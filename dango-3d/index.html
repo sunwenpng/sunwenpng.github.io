@@ -77,7 +77,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px;font-weight:900;text-shadow:
     <h1>团子大冒险</h1>
     <p class="sub">在 3D 世界里跑跳闯关！踩扁毛毛球、顶开问号砖、吃星星糖变大，集齐每关 3 颗大星星，最后打败毛球大王。</p>
     <div id="worlds"></div>
-    <div class="row" style="margin-top:8px"><button class="btn small" id="tMusic">音乐：开</button><button class="btn small" id="tSfx">音效：开</button><button class="btn small" id="tQual">画质：高</button><button class="btn small free" id="tFree">🎁 免费解锁全部关卡</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn small" id="tMusic">音乐：开</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="tSfx">音效：开</button><button class="btn small" id="tQual">画质：高</button><button class="btn small free" id="tFree">🎁 免费解锁全部关卡</button></div>
     <p class="hint">手机：左半屏按住拖动 = 摇杆移动，右下「跳」跳跃（按久跳得高），「冲」加速跑。<br>电脑：WASD / 方向键移动，空格 跳，Shift 冲刺，C 切换视角，P 暂停。<br>落到敌人头上可以踩扁它们；带刺的不能踩！从下面顶问号砖会掉金币或道具。</p>
   </div>
 </div>
@@ -90,7 +90,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px;font-weight:900;text-shadow:
       <button class="btn" id="pRestart">重新开始本关</button>
       <button class="btn" id="pQuit">返回关卡选择</button>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn small" id="tMusic2">音乐</button><button class="btn small" id="tSfx2">音效</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="tMusic2">音乐</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="tSfx2">音效</button></div>
   </div>
 </div>
 

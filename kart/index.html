@@ -100,7 +100,7 @@ td.r{text-align:right;font-variant-numeric:tabular-nums}
       <button class="mode" id="mFree"><span class="ic">🏁</span><b>单场比赛</b><small>6 条赛道任你选，前三名解锁下一条</small></button>
       <button class="mode" id="mGarage"><span class="ic">🔧</span><b>车库</b><small>选车手、换车身、换轮胎、喷漆</small></button>
     </div>
-    <div class="row" style="margin-top:4px"><button class="btn small" id="tMusic">音乐：开</button><button class="btn small" id="tSfx">音效：开</button><button class="btn small" id="tQual">画质：高</button><button class="btn small free" id="tFree">🎁 免费全解锁</button></div>
+    <div class="row" style="margin-top:4px"><button class="btn small" id="tMusic">音乐：开</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="tSfx">音效：开</button><button class="btn small" id="tQual">画质：高</button><button class="btn small free" id="tFree">🎁 免费全解锁</button></div>
     <p class="hint">手机横屏：左下 ◀ ▶ 转向；右下「漂移」按住转弯攒火花（蓝→橙→紫），松开加速；「道具」使用道具。<br>电脑：← → / A D 转向，空格 / Shift 漂移，E 道具，↓ 刹车，C 视角，P 暂停。<br>飞跃台腾空时按漂移键 = 空中特技，落地加速。倒数「1」快消失时按住漂移 = 火箭起步。</p>
   </div>
 </div>
@@ -135,7 +135,7 @@ td.r{text-align:right;font-variant-numeric:tabular-nums}
       <button class="btn" id="pRestart">重新开始</button>
       <button class="btn" id="pQuit">退出到菜单</button>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn small" id="tMusic2">音乐</button><button class="btn small" id="tSfx2">音效</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="tMusic2">音乐</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="tSfx2">音效</button></div>
   </div>
 </div>
 

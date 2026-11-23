@@ -64,7 +64,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px}
     <h1>节奏团子</h1>
     <p class="sub">跟着节拍跳！点一下跳，按住连跳。<br>新玩法「双生」：上下两只团子同时听你一个指令。</p>
     <div class="levels" id="levelList"></div>
-    <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" id="btnSfx">音效：开</button><button class="btn small" id="btnUnlock" style="background:linear-gradient(135deg,#f5a524,#e0457b);border-color:transparent">🔓 免费解锁全部关卡</button></div>
+    <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="btnSfx">音效：开</button><button class="btn small" id="btnUnlock" style="background:linear-gradient(135deg,#f5a524,#e0457b);border-color:transparent">🔓 免费解锁全部关卡</button></div>
     <div class="hint" id="rotHint">手机横屏玩视野更大。电脑：空格 / 方向上 / 鼠标点击 跳跃，P 暂停。</div>
   </div>
 </div>
@@ -79,7 +79,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px}
       <button class="btn" id="btnRestart">从头开始</button>
       <button class="btn" id="btnLevels">返回选关</button>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn small" id="btnMusic2">音乐</button><button class="btn small" id="btnSfx2">音效</button></div>
+    <div class="row" style="margin-top:10px"><button class="btn small" id="btnMusic2">音乐</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="btnSfx2">音效</button></div>
     <p class="hint">练习模式会自动放置存档点（菱形），死亡后从存档点继续，但不计入成绩。</p>
   </div>
 </div>
@@ -167,7 +167,7 @@ function makeSong(lv){
 /* 背景音乐：OpenGameArt 上的 CC0 曲目（见 music/CREDITS.md） */
 const LV_TRACK={1:['l1',140],2:['l2',90],3:['l3',103.5],4:['l4',169],5:['l5',161.5],6:['l6',140],7:['l7',109],8:['l8',165],daily:['daily',172.5]};
 let curBpm=120;GameMusic.setVolume(0.6);GameMusic.setEnabled(!!save.music);
-function startMusic(lv,offset){const t=LV_TRACK[lv.id]||LV_TRACK[1];curBpm=t[1];GameMusic.play('music/'+t[0]+'.m4a',{restart:true,at:offset||0})}
+function startMusic(lv,offset){const t=LV_TRACK[lv.id]||LV_TRACK[1];curBpm=t[1];GameMusic.play('music/'+t[0]+'.m4a',{restart:true,at:offset||0,force:true})}
 function stopMusic(){GameMusic.pause()}
 function beatPhase(){if(!GameMusic.playing)return 0;const b=GameMusic.time*curBpm/60;return b-Math.floor(b)}
 function startSynthMusic(lv,offset){

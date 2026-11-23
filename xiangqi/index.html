@@ -52,8 +52,10 @@ h2{margin:0 0 10px;text-align:center;font-size:24px}
 <div class="bar" id="botBar">
   <button class="b" id="bUndo">悔棋</button>
   <button class="b" id="bHint">提示</button>
+  <button class="b" id="bResign" style="display:none">认输</button>
   <button class="b" id="bView">俯视</button>
   <button class="b" id="bMusic">音乐：开</button>
+  <button class="b" onclick="GameMusic.openPlaylist()">🎵 歌单</button>
 </div>
 <div id="toast"></div>
 
@@ -61,10 +63,10 @@ h2{margin:0 0 10px;text-align:center;font-size:24px}
   <div class="box">
     <h1>象棋</h1>
     <p class="sub">点自己的棋子，再点亮起的落点走棋。吃掉对方的将（帅）就赢了。</p>
-    <div class="opt"><span>对手</span><div class="seg" id="segMode"><button data-v="ai" class="sel">电脑</button><button data-v="pvp">双人同屏</button></div></div>
+    <div class="opt"><span>对手</span><div class="seg" id="segMode"><button data-v="ai" class="sel">电脑</button><button data-v="pvp">双人同屏</button><button data-v="online">在线联机</button></div></div>
     <div class="opt" id="optLevel"><span>难度</span><div class="seg" id="segLevel"><button data-v="1">简单</button><button data-v="2" class="sel">普通</button><button data-v="3">困难</button></div></div>
     <div class="opt" id="optSide"><span>我执</span><div class="seg" id="segSide"><button data-v="r" class="sel">红方（先手）</button><button data-v="b">黑方（后手）</button></div></div>
-    <div class="row"><button class="b primary" id="bStart" style="min-width:160px">开始对局</button></div>
+    <div class="row"><button class="b primary" id="bStart" style="min-width:160px">开始对局</button><button class="b" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button></div>
     <div class="rec" id="rec"></div>
   </div>
 </div>
@@ -81,6 +83,10 @@ h2{margin:0 0 10px;text-align:center;font-size:24px}
 <script src="../lib/three.min.js"></script>
 <script src="../lib/music.js"></script>
 <script src="../lib/boardkit.js"></script>
+<script src="../lib/net-config.js"></script>
+<script src="../lib/net.js"></script>
+<script src="../lib/netui.js"></script>
+<script src="../lib/boardnet.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -218,7 +224,8 @@ GameMusic.setVolume(0.42);GameMusic.setEnabled(!!save.music);
 let B,turn,hist,over,mode,level,me,sel=-1,busy=false,ply=0;
 function newGame(){
   for(const m of meshes)if(m)kit.scene.remove(m);meshes=new Array(90).fill(null);
-  B=parse(START);turn='r';hist=[];over=false;busy=false;sel=-1;ply=0;mode=save.mode;level=save.level;me=mode==='ai'?save.side:'r';flip=mode==='ai'&&me==='b';
+  B=parse(START);turn='r';hist=[];over=false;busy=false;sel=-1;ply=0;mode=bn.active?'online':save.mode;level=save.level;me=mode==='ai'?save.side:mode==='online'?onlineSide:'r';flip=(mode==='ai'||mode==='online')&&me==='b';
+  $('bUndo').style.display=$('bHint').style.display=mode==='online'?'none':'';$('bResign').style.display=mode==='online'?'':'none';
   for(let i=0;i<90;i++)if(B[i])spawn(i,B[i]);
   selRing.visible=lastFrom.visible=lastTo.visible=hintRing.visible=false;clearDots();$('over').hidden=true;
   updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*2)],{fade:0.6});
@@ -248,25 +255,26 @@ function doMove(f,t,fromAI){
 }
 const lerp=(a,b,t)=>a+(b-a)*t;
 function aiTurn(){if(over)return;busy=true;updateStatus();setTimeout(()=>{const m=bestMove(B.slice(),turn,level);busy=false;if(m)doMove(m[0],m[1],true)},60)}
-function finish(win){
+function finish(win,why){
   let icon='🤝',title='和棋',sub='已走 300 步';
   if(win){if(mode==='pvp'){icon='🏆';title=(win==='r'?'红方':'黑方')+'获胜！';sub='绝杀！'}
+    else if(mode==='online'){icon=win===me?'🏆':'😅';title=win===me?'你赢了！':'对手赢了';sub=why||'绝杀！再来一局会交换红黑';if(win===me)GameMusic.jingle('../music/board/win.m4a',0.8)}
     else if(win===me){icon='🏆';title='你赢了！';sub=['','简单','普通','困难'][level]+'难度 · '+Math.ceil(ply/2)+' 回合';save.w++;GameMusic.jingle('../music/board/win.m4a',0.8)}
     else{icon='😅';title='电脑赢了';sub='再来一局，注意对方的车和马';save.l++}persist()}
   $('oIcon').textContent=icon;$('oTitle').textContent=title;$('oSub').textContent=sub;$('over').hidden=false;updateStatus();
 }
 function updateStatus(){$('turnDot').className='dot '+(turn==='r'?'red':'black');
-  $('turnText').textContent=over?'对局结束':busy?'电脑思考中…':mode==='pvp'?(turn==='r'?'红方':'黑方')+'走棋':(turn===me?'轮到你（'+(me==='r'?'红':'黑')+'）':'电脑走棋');$('bUndo').disabled=!hist.length||busy}
+  $('turnText').textContent=over?'对局结束':busy?'电脑思考中…':mode==='online'?(turn===me?'轮到你（'+(me==='r'?'红':'黑')+'）':'等待对手走棋…'):mode==='pvp'?(turn==='r'?'红方':'黑方')+'走棋':(turn===me?'轮到你（'+(me==='r'?'红':'黑')+'）':'电脑走棋');$('bUndo').disabled=!hist.length||busy}
 function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,1300)}
 
 /* ================= 输入 ================= */
 const cv=$('gl');let down=null;
 function sqAt(x,y){const p=kit.pick(x,y);if(!p)return -1;let c,r;if(flip){c=Math.round(4-p.x/S);r=Math.round(4.5-p.z/S)}else{c=Math.round(p.x/S+4);r=Math.round(p.z/S+4.5)}if(c<0||c>8||r<0||r>9)return -1;const[wx,wz]=wpos(r*9+c);if(Math.hypot(wx-p.x,wz-p.z)>0.55)return -1;return r*9+c}
 cv.addEventListener('pointerdown',e=>{ac();GameMusic.unlock();down={x:e.clientX,y:e.clientY}});
-cv.addEventListener('pointerup',e=>{if(!down)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>14||over||busy)return;if(mode==='ai'&&turn!==me)return;
+cv.addEventListener('pointerup',e=>{if(!down)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>14||over||busy)return;if((mode==='ai'||mode==='online')&&turn!==me)return;
   const i=sqAt(e.clientX,e.clientY);if(i<0){deselect();return}
   if(B[i]&&side(B[i])===turn){if(sel===i){deselect();return}deselect();select(i);knock(false);return}
-  if(sel>=0){const ok=legal(B,turn).some(m=>m[0]===sel&&m[1]===i);if(ok)doMove(sel,i);else{deselect()}}});
+  if(sel>=0){const ok=legal(B,turn).some(m=>m[0]===sel&&m[1]===i);if(ok){const f=sel;doMove(f,i);if(mode==='online')bn.send([f,i])}else{deselect()}}});
 $('bUndo').onclick=()=>{if(busy||!hist.length)return;
   const n=mode==='ai'?(turn===me?2:1):1;
   for(let k=0;k<n&&hist.length;k++){const h=hist.pop();B[h.f]=h.p;B[h.t]=h.cap;const m=meshes[h.t];meshes[h.f]=m;meshes[h.t]=h.mesh;const[x,z]=wpos(h.f);m.position.set(x,0.12,z);if(h.mesh){const[x2,z2]=wpos(h.t);h.mesh.position.set(x2,0.12,z2)}turn=turn==='r'?'b':'r';ply--}
@@ -274,13 +282,23 @@ $('bUndo').onclick=()=>{if(busy||!hist.length)return;
 $('bHint').onclick=()=>{if(over||busy)return;busy=true;updateStatus();setTimeout(()=>{const m=bestMove(B.slice(),turn,2);busy=false;updateStatus();if(!m)return;deselect();select(m[0]);const[x,z]=wpos(m[1]);hintRing.position.set(x,0.06,z);hintRing.visible=true;toast('试试这步')},50)};
 $('bView').onclick=()=>{save.view=kit.view==='3d'?'top':'3d';persist();kit.setView(save.view);$('bView').textContent=save.view==='3d'?'俯视':'3D'};$('bView').textContent=save.view==='3d'?'俯视':'3D';
 $('bMusic').onclick=()=>{save.music=save.music?0:1;persist();GameMusic.setEnabled(!!save.music);$('bMusic').textContent='音乐：'+(save.music?'开':'关')};$('bMusic').textContent='音乐：'+(save.music?'开':'关');
-$('bMenu').onclick=()=>openSetup();
+$('bMenu').onclick=()=>{if(bn.active&&!confirm('退出联机对局？'))return;if(bn.active)bn.leave();openSetup()};
 function seg(id,key,cast){const el=$(id);for(const b of el.children){b.classList.toggle('sel',String(save[key])===b.dataset.v);b.onclick=()=>{save[key]=cast?cast(b.dataset.v):b.dataset.v;persist();openSetup()}}}
-function openSetup(){$('setup').hidden=false;$('over').hidden=true;seg('segMode','mode');seg('segLevel','level',Number);seg('segSide','side');$('optLevel').classList.toggle('hide',save.mode!=='ai');$('optSide').classList.toggle('hide',save.mode!=='ai');$('rec').textContent='人机战绩：'+save.w+' 胜 '+save.l+' 负'}
-$('bStart').onclick=()=>{ac();$('setup').hidden=true;newGame()};$('bAgain').onclick=()=>newGame();$('bSetup').onclick=()=>openSetup();$('bReview').onclick=()=>{$('over').hidden=true};
+function openSetup(){$('setup').hidden=false;$('over').hidden=true;$('bStart').textContent=save.mode==='online'?'进入联机大厅':'开始对局';seg('segMode','mode');seg('segLevel','level',Number);seg('segSide','side');$('optLevel').classList.toggle('hide',save.mode!=='ai');$('optSide').classList.toggle('hide',save.mode!=='ai');$('rec').textContent='人机战绩：'+save.w+' 胜 '+save.l+' 负'}
+$('bStart').onclick=()=>{ac();$('setup').hidden=true;if(save.mode==='online'){bn.open();return}newGame()};$('bAgain').onclick=()=>{if(mode==='online'&&bn.active)bn.again();else newGame()};$('bSetup').onclick=()=>{if(bn.active)bn.leave();openSetup()};
+$('bResign').onclick=()=>{if(over||mode!=='online')return;over=true;bn.resign();finish(me==='r'?'b':'r','你认输了')};$('bReview').onclick=()=>{$('over').hidden=true};
 B=parse(START);turn='r';hist=[];over=true;mode=save.mode;level=save.level;me=save.side;
 for(let i=0;i<90;i++)if(B[i])spawn(i,B[i]);
-GameMusic.play(TRACKS[0]);openSetup();
+GameMusic.play(TRACKS[0]);
+let onlineSide='r';
+const bn=BoardNet({game:'xiangqi',title:'中国象棋',firstSide:'r',otherSide:'b',
+  start:(side)=>{onlineSide=side;$('setup').hidden=true;newGame();toast(side==='r'?'你执红先行':'你执黑后手')},
+  apply:(m,n)=>{if(over||n!==hist.length||turn===me)return;if(!legal(B,turn).some(x=>x[0]===m[0]&&x[1]===m[1]))return;doMove(m[0],m[1])},
+  moves:()=>hist.map(h=>[h.f,h.t]),
+  replay:(mv)=>{for(let k=hist.length;k<mv.length&&!over;k++){if(legal(B,turn).some(x=>x[0]===mv[k][0]&&x[1]===mv[k][1]))doMove(mv[k][0],mv[k][1])}},
+  onResign:()=>{if(over)return;over=true;finish(me,'对手认输了')},
+  status:t=>toast(t),onClose:()=>openSetup()});
+if(!bn.autoJoin())openSetup();else $('setup').hidden=true;
 (function loop(){kit.render();requestAnimationFrame(loop)})();
 </script>
 </body>
