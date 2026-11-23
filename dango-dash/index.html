@@ -62,7 +62,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px}
   <div class="box">
     <div class="top"><a href="../">← 游戏大厅</a><span>总星星 <span class="stars" id="totalStars">0</span></span></div>
     <h1>节奏团子</h1>
-    <p class="sub">跟着节拍跳！点一下跳，按住连跳。<br>新玩法「双生」：上下两只团子同时听你一个指令。</p>
+    <p class="sub">跟着节拍跳！点一下跳；在空中再点一下还能跳，最多三连跳；按住不放跳得更高更远。<br>新玩法「双生」：上下两只团子同时听你一个指令。</p>
     <div class="levels" id="levelList"></div>
     <div class="row"><button class="btn small" id="btnMusic">音乐：开</button><button class="btn small" onclick="GameMusic.openPlaylist()">🎵 我的歌单</button><button class="btn small" id="btnSfx">音效：开</button><button class="btn small" id="btnUnlock" style="background:linear-gradient(135deg,#f5a524,#e0457b);border-color:transparent">🔓 免费解锁全部关卡</button></div>
     <div class="hint" id="rotHint">手机横屏玩视野更大。电脑：空格 / 方向上 / 鼠标点击 跳跃，P 暂停。</div>
@@ -147,6 +147,7 @@ function sfx(n){
   if(n==='die'){nz(0.45,0.5,'lowpass',1800);blip(180,0.35,'sawtooth',0.15,0.3)}
   else if(n==='coin'){[1319,1760,2349].forEach((f,i)=>blip(f,0.12,'triangle',0.12,1,now+i*0.05))}
   else if(n==='orb'){blip(880,0.12,'sine',0.12,1.6)}
+  else if(n==='air'){blip(660,0.1,'triangle',0.1,1.8);blip(990,0.12,'sine',0.06,1.5)}
   else if(n==='pad'){blip(300,0.18,'square',0.07,3)}
   else if(n==='grav'){blip(600,0.25,'sine',0.1,0.5);blip(900,0.25,'sine',0.06,2)}
   else if(n==='twin'){[523,784,1047].forEach((f,i)=>blip(f,0.2,'triangle',0.1,1,now+i*0.04))}
@@ -254,7 +255,7 @@ $('btnAgain').onclick=()=>{sfx('click');const p=practice;startLevel(cur.lv,cur.d
 $('btnWinLevels').onclick=()=>openMenu();
 
 /* ---------- 输入 ---------- */
-function press(){initAudio();if(mode==='play'){held=true;tapPending=true}}
+function press(){initAudio();if(mode==='play'){if(st&&st.ph)st.press=true;held=true;tapPending=true}}
 function release(){held=false}
 cv.addEventListener('pointerdown',e=>{e.preventDefault();press()});
 addEventListener('pointerup',release);addEventListener('pointercancel',release);
@@ -310,6 +311,7 @@ function openMenu(){
 function handleEvents(){
   for(const e of st.events){
     if(e==='coin'||e==='orb'||e==='pad'||e==='grav'||e==='twin')sfx(e);
+    if(e.startsWith('air')){const b=st.bodies[+e.slice(3)]||st.bodies[0];sfx('air');for(let i=0;i<14;i++){const a=i/14*TAU;parts.push({x:st.x,y:b.y-0.3*b.s,vx:Math.cos(a)*3.2,vy:Math.sin(a)*1.2-1.5*b.s,t:0.35,c:b.aj>1?'#ff9de0':'#9be7ff',r:0.07})}}
     if(e==='coin')burstAt(st.x,st.bodies[0].y,'#ffd166',12);
     if(e==='twin'){vis.push({rot:0,sq:1});burstAt(st.x,st.bodies[1].y,'#80ed99',16)}
     if(e==='untwin'){if(vis[1])burstAt(st.x,9-st.bodies[0].y,'#80ed99',12);vis.length=1}

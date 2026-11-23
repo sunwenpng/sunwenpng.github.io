@@ -8,7 +8,8 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const PH = { G: 82, J: 19.5, VX: 8.4, H: 0.4, HZ: 0.3, MAXV: 28, DT: 1 / 240, PAD: 1.5, SUB: 4 };
+  const PH = { G: 82, J: 19.5, VX: 8.4, H: 0.4, HZ: 0.3, MAXV: 28, DT: 1 / 240, PAD: 1.5, SUB: 4, AIR: 2, AIRJ: 0.9, HOLD0: 0.1, HOLD1: 0.38, HOLDG: 0.5 };
+  // AIR：空中还能再跳几次（2 = 三连跳）；按住超过 HOLD0 秒后，上升时重力减半直到 HOLD1 秒（按得越久跳得越高）
 
   /* ---------- 关卡片段（上面一行是最高行，最后一行贴地） ---------- */
   // 记号：# 方块  ^ 地刺  v 倒刺  = 跳板  ~ 倒跳板  o 黄环（空中点击再跳）  b 蓝环（翻转重力）
@@ -106,7 +107,7 @@
 
   /* ---------- 关卡表 ---------- */
   const LEVELS = [
-    { id: 1, name: '初遇', sub: '点一下就跳，按住连跳', color: '#ff9fb2', bg: ['#2b1d4a', '#6b3a7a'], bpm: 120, key: 0,
+    { id: 1, name: '初遇', sub: '点一下跳，空中再点能三连跳，按住跳更高', color: '#ff9fb2', bg: ['#2b1d4a', '#6b3a7a'], bpm: 120, key: 0,
       seq: ['flat', 'flat', 'sp1', 'sp1', 'blk1', 'sp2', 'blk1', 'coinA', 'sp1x3', 'blk2', 'sp2', 'stairs', 'sp3', 'blkrun', 'coinA', 'blkspk', 'sp2', 'stairs', 'sp1x3', 'coinA', 'sp3', 'flat'] },
     { id: 2, name: '弹弹板', sub: '踩上黄色跳板会弹得更高', color: '#ffd166', bg: ['#14324a', '#2f6d7a'], bpm: 124, key: 2,
       seq: ['flat', 'flat', 'sp2', 'padspk', 'blk1', 'pad1', 'coinB', 'sp3', 'padplat', 'stairs', 'lowRoof', 'padspk', 'coinA', 'plat', 'pad1', 'blkspk', 'coinB', 'padplat', 'sp3', 'flat'] },
@@ -173,10 +174,10 @@
   function newState(L) {
     return { x: 0.5, speed: 1, t: 0, bodies: [newBody(0.5, 1)], twin: false, coins: 0, dead: false, won: false, events: [] };
   }
-  function newBody(y, s) { return { y: y || PH.H, vy: 0, s: s || 1, g: true, lo: 0, lp: 0, land: 0 }; }
+  function newBody(y, s) { return { y: y || PH.H, vy: 0, s: s || 1, g: true, lo: 0, lp: 0, land: 0, aj: 0, ht: 9 }; }
   function clone(st) {
-    return { x: st.x, speed: st.speed, t: st.t, twin: st.twin, coins: st.coins, dead: st.dead, won: st.won, events: [],
-      bodies: st.bodies.map(b => ({ y: b.y, vy: b.vy, s: b.s, g: b.g, lo: b.lo, lp: b.lp, land: b.land })) };
+    return { x: st.x, speed: st.speed, t: st.t, twin: st.twin, coins: st.coins, dead: st.dead, won: st.won, events: [], ph: st.ph,
+      bodies: st.bodies.map(b => ({ y: b.y, vy: b.vy, s: b.s, g: b.g, lo: b.lo, lp: b.lp, land: b.land, aj: b.aj || 0, ht: b.ht == null ? 9 : b.ht })) };
   }
   const ov = (ax0, ax1, ay0, ay1, bx0, bx1, by0, by1) => ax1 > bx0 && ax0 < bx1 && ay1 > by0 && ay0 < by1;
 
@@ -199,24 +200,32 @@
           if (b.s !== ns) { b.s = ns; b.vy *= 0.5; b.g = false; st.events.push('grav'); }
         } else if (t.ch === 'T' && !st.twin) {
           const b = st.bodies[0], M = 2 * t.r + 1;
-          st.bodies.push({ y: M - b.y, vy: -b.vy, s: -b.s, g: b.g, lo: 0, lp: 0, land: 0 });
+          st.bodies.push({ y: M - b.y, vy: -b.vy, s: -b.s, g: b.g, lo: 0, lp: 0, land: 0, aj: b.aj || 0, ht: b.ht == null ? 9 : b.ht });
           st.twin = true; st.events.push('twin');
         } else if (t.ch === 't' && st.twin) {
           st.bodies.length = 1; st.twin = false; st.events.push('untwin');
         }
       }
     }
+    // 按下的那一刻（用来空中连跳）；st.press 由界面在快速“松开又按下”时设置
+    const pressed = (held && !st.ph) || !!st.press;
+    st.ph = !!held; st.press = false;
     for (let i = 0; i < st.bodies.length; i++) {
-      stepBody(st, L, st.bodies[i], held, i);
+      stepBody(st, L, st.bodies[i], held, i, pressed);
       if (st.dead) return;
     }
     if (st.x >= L.end) { st.won = true; st.events.push('win'); }
   }
 
-  function stepBody(st, L, b, held, bi) {
+  // 求解器只用“经典跳法”（不用连跳/长按）验证关卡：新能力只会让玩家更容易，不会更难
+  let CLASSIC = false;
+  function stepBody(st, L, b, held, bi, pressed) {
     const dt = PH.DT, H = PH.H, x = st.x;
-    if (held && b.g) { b.vy = PH.J * b.s; b.g = false; st.events.push('jump' + bi); }
-    b.vy -= PH.G * b.s * dt;
+    if (held && b.g) { b.vy = PH.J * b.s; b.g = false; b.aj = 0; b.ht = 0; st.events.push('jump' + bi); }
+    else if (!CLASSIC && pressed && !b.g && (b.aj || 0) < PH.AIR) { b.vy = PH.J * PH.AIRJ * b.s; b.aj = (b.aj || 0) + 1; b.ht = 0; st.events.push('air' + bi); }
+    if (held) b.ht = (b.ht == null ? 9 : b.ht) + dt; else b.ht = 9;
+    const floaty = !CLASSIC && held && b.vy * b.s > 0 && b.ht > PH.HOLD0 && b.ht < PH.HOLD1;
+    b.vy -= PH.G * (floaty ? PH.HOLDG : 1) * b.s * dt;
     if (b.vy > PH.MAXV) b.vy = PH.MAXV; else if (b.vy < -PH.MAXV) b.vy = -PH.MAXV;
     const py = b.y;
     b.y += b.vy * dt;
@@ -238,6 +247,7 @@
       }
       if (!hit) break;
     }
+    if (b.g) b.aj = 0;
     if (b.g && !wasG) b.land = 1;
     if (b.y > L.h + 5 || b.y < -1) { st.dead = true; st.events.push('die'); return; }
     // 机关
@@ -270,6 +280,10 @@
   /* ---------- 求解器：以 1/60 秒为决策粒度，找一条通关路线 ---------- */
   function solve(L, opts) {
     opts = opts || {};
+    CLASSIC = opts.classic !== false;
+    try { return solveInner(L, opts); } finally { CLASSIC = false; }
+  }
+  function solveInner(L, opts) {
     const maxW = opts.maxWidth || 3000;
     let layer = [{ st: opts.init || newState(L), path: null }];
     let frames = 0, best = 0, maxWidth = 1;
@@ -286,7 +300,7 @@
           if (s.won) {
             return { ok: true, frames, maxWidth, path: path && unroll(path), coins: s.coins };
           }
-          const key = s.bodies.map(b => Math.round(b.y * 200) + ':' + Math.round(b.vy * 10) + ':' + b.s + ':' + b.lo + ':' + b.lp + ':' + (b.g ? 1 : 0)).join('|') + '|' + s.speed;
+          const key = s.bodies.map(b => Math.round(b.y * 200) + ':' + Math.round(b.vy * 10) + ':' + b.s + ':' + b.lo + ':' + b.lp + ':' + (b.g ? 1 : 0) + (CLASSIC ? '' : ':' + (b.aj || 0) + ':' + Math.min(5, Math.round(b.ht * 20)))).join('|') + '|' + s.speed + (CLASSIC ? '' : '|' + (s.ph ? 1 : 0));
           const prev = next.get(key);
           if (!prev || (opts.coins && popcount(s.coins) > popcount(prev.st.coins))) next.set(key, { st: s, path });
         }
