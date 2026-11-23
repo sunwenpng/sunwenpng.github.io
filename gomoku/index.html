@@ -114,7 +114,7 @@ const winMarks=[];
 /* ---------- 音效 ---------- */
 let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
 function click(){const a=ac();if(!a)return;const t=a.currentTime;const b=a.createBuffer(1,a.sampleRate*0.06,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,6);const s=a.createBufferSource();s.buffer=b;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=2400;const g=a.createGain();g.gain.value=0.9;s.connect(f);f.connect(g);g.connect(a.destination);s.start(t);const o=a.createOscillator(),og=a.createGain();o.frequency.setValueAtTime(900,t);o.frequency.exponentialRampToValueAtTime(400,t+0.05);og.gain.setValueAtTime(0.12,t);og.gain.exponentialRampToValueAtTime(0.001,t+0.08);o.connect(og);og.connect(a.destination);o.start(t);o.stop(t+0.1)}
-const TRACKS=['../music/board/piano.m4a','../music/board/meadow.m4a'];
+const TRACKS=['../music/board/cloudy.m4a','../music/board/amber.m4a','../music/board/coffee.m4a','../music/board/calm.m4a'];
 GameMusic.setVolume(0.45);GameMusic.setEnabled(!!save.music);
 function music(){GameMusic.play(TRACKS[Math.floor(Math.random()*TRACKS.length)],{fade:0.6})}
 

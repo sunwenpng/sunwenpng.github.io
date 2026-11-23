@@ -217,7 +217,7 @@ let meshes=new Array(90).fill(null);
 let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
 function knock(hard){const a=ac();if(!a)return;const t=a.currentTime;const o=a.createOscillator(),g=a.createGain(),f=a.createBiquadFilter();o.type='triangle';o.frequency.setValueAtTime(hard?260:420,t);o.frequency.exponentialRampToValueAtTime(hard?90:180,t+0.12);f.type='lowpass';f.frequency.value=1800;g.gain.setValueAtTime(hard?0.5:0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);o.connect(f);f.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.2)}
 function bell(){const a=ac();if(!a)return;const t=a.currentTime;for(const[fq,v]of[[880,0.18],[1320,0.1]]){const o=a.createOscillator(),g=a.createGain();o.frequency.value=fq;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.8);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.9)}}
-const TRACKS=['../music/board/oriental2.m4a','../music/board/kingdom.m4a'];
+const TRACKS=['../music/board/jade.m4a','../music/board/strings.m4a','../music/board/liyan.m4a'];
 GameMusic.setVolume(0.42);GameMusic.setEnabled(!!save.music);
 
 /* ================= 对局 ================= */
@@ -228,7 +228,7 @@ function newGame(){
   $('bUndo').style.display=$('bHint').style.display=mode==='online'?'none':'';$('bResign').style.display=mode==='online'?'':'none';
   for(let i=0;i<90;i++)if(B[i])spawn(i,B[i]);
   selRing.visible=lastFrom.visible=lastTo.visible=hintRing.visible=false;clearDots();$('over').hidden=true;
-  updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*2)],{fade:0.6});
+  updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*TRACKS.length)],{fade:0.6});
   if(mode==='ai'&&me==='b')setTimeout(aiTurn,600);
 }
 function spawn(i,p){const m=BoardKit.disc(NAME[p],isRed(p),0.43,0.24);const[x,z]=wpos(i);m.position.set(x,0.12,z);m.rotation.y=flip?-Math.PI/2:Math.PI/2;kit.scene.add(m);meshes[i]=m;return m}

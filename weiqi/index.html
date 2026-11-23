@@ -200,7 +200,7 @@ let stoneMesh={},lastMark,ghost,terrMarks=[];
 /* ================= 音效 ================= */
 let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
 function click(){const a=ac();if(!a)return;const t=a.currentTime;const bf=a.createBuffer(1,a.sampleRate*0.05,a.sampleRate),d=bf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,7);const s=a.createBufferSource();s.buffer=bf;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=2600;const g=a.createGain();g.gain.value=1;s.connect(f);f.connect(g);g.connect(a.destination);s.start(t)}
-const TRACKS=['../music/board/pentatonic.m4a','../music/board/oriental.m4a'];
+const TRACKS=['../music/board/kawarayu.m4a','../music/board/hotspring.m4a','../music/board/misty.m4a','../music/board/duet.m4a'];
 GameMusic.setVolume(0.42);GameMusic.setEnabled(!!save.music);
 
 /* ================= 对局 ================= */
@@ -220,7 +220,7 @@ function newGame(){
   lastMark.scale.setScalar(STEP*0.16);lastMark.visible=false;ghost.scale.set(STEP*0.47,STEP*0.47*0.42,STEP*0.47);ghost.visible=false;
   game=new Go(N);turn=1;hist=[];over=false;busy=false;passes=0;moveNo=0;mode=bn.active?'online':save.mode;level=save.level;me=mode==='ai'?save.side:mode==='online'?onlineSide:0;
   $('bUndo').style.display=mode==='online'?'none':'';
-  $('over').hidden=true;updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*2)],{fade:0.6});
+  $('over').hidden=true;updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*TRACKS.length)],{fade:0.6});
   if(mode==='ai'&&me===2)setTimeout(aiTurn,500);
 }
 function doPlay(p){
