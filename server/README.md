@@ -2,6 +2,9 @@
 
 负责房间和快速匹配：只转发玩家之间的消息，不保存对局。
 
+> 目前网站默认用免费公共 MQTT 中转（见 `lib/net-config.js`），不需要部署这个服务器。
+> 想要更稳定、自己掌控时，再按下面步骤部署并把地址填进 `lib/net-config.js`。
+
 - `GET /health` → `ok`
 - `wss://…/room/123456?game=doudizhu&max=3&name=…&cid=…` 进房间
 - `wss://…/match?game=doudizhu&max=3&min=2&name=…&cid=…` 快速匹配

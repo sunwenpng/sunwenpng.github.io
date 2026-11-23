@@ -516,7 +516,7 @@ function onlineStart(ctx){
 function syncOnline(){ME=Math.max(0,G.seats.findIndex(s=>s.cid===Net.cid));const info=ONLINE.room.info;if(info){ONLINE.isHost=info.host===Net.cid;for(const s of G.seats)if(s.cid)s.online=info.players.some(p=>p.cid===s.cid)}}
 function onNet(d,from){
   if(!d)return;
-  if(d.k==='deal'){newDeal(d.cfg);return}
+  if(d.k==='deal'){if(d.cfg.seats&&!d.cfg.seats.some(s=>s.cid===Net.cid))return;newDeal(d.cfg);return}
   if(!G)return;
   if(d.k==='act'){if(d.h!==G.seed)return;act(d.a,true);return}
   if(d.k==='sync'&&d.to===Net.cid){restore(d.state);return}
