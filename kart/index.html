@@ -64,15 +64,16 @@ td.r{text-align:right;font-variant-numeric:tabular-nums}
 .trophy{font-size:72px;text-align:center;margin:0}
 .hide{display:none!important}
 #ctrl{position:fixed;inset:0;pointer-events:none;z-index:5}
-#ctrl button{pointer-events:auto;position:absolute;border-radius:50%;border:3px solid rgba(255,255,255,.45);background:rgba(10,40,100,.38);font-weight:900;color:#fff;backdrop-filter:blur(2px)}
-#ctrl button.on{background:rgba(255,255,255,.35)}
-#bL{left:calc(var(--sl) + 14px);bottom:calc(var(--sb) + 16px);width:86px;height:86px;font-size:30px}
-#bR{left:calc(var(--sl) + 112px);bottom:calc(var(--sb) + 16px);width:86px;height:86px;font-size:30px}
-#bD{right:calc(var(--sr) + 14px);bottom:calc(var(--sb) + 16px);width:100px;height:100px;font-size:18px;background:rgba(255,120,40,.45)!important}
-#bI{right:calc(var(--sr) + 124px);bottom:calc(var(--sb) + 30px);width:72px;height:72px;font-size:15px}
-#bB{right:calc(var(--sr) + 40px);bottom:calc(var(--sb) + 128px);width:56px;height:56px;font-size:13px}
-#bP{right:calc(var(--sr) + 12px);top:calc(var(--st) + 10px);width:44px!important;height:44px!important;border-radius:12px!important;font-size:15px}
-#bM{right:calc(var(--sr) + 64px);top:calc(var(--st) + 10px);width:44px!important;height:44px!important;border-radius:12px!important;font-size:15px}
+#steerZone{position:absolute;left:0;bottom:0;width:50%;height:75%;pointer-events:auto;touch-action:none}
+#ctrl .cb{pointer-events:auto;position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.6);color:#fff;font-weight:900;display:grid;place-items:center;line-height:1.05;text-shadow:0 2px 3px rgba(0,0,0,.35);
+  background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.42),rgba(30,80,170,.42) 62%);box-shadow:0 6px 16px rgba(0,0,0,.28),inset 0 -5px 0 rgba(0,0,0,.18);backdrop-filter:blur(3px);transition:transform .06s}
+#ctrl .cb.on{transform:scale(.92);filter:brightness(1.25)}
+#bD{right:calc(var(--sr) + 18px);bottom:calc(var(--sb) + 18px);width:112px;height:112px;font-size:18px;background:radial-gradient(circle at 35% 28%,rgba(255,236,180,.7),rgba(255,110,40,.62) 62%)!important}
+#bD small{display:block;font-size:11px;opacity:.85;font-weight:700}
+#bI{right:calc(var(--sr) + 142px);bottom:calc(var(--sb) + 26px);width:80px;height:80px;font-size:34px}
+#bI small{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:11px;white-space:nowrap}
+#bB{right:calc(var(--sr) + 48px);bottom:calc(var(--sb) + 142px);width:58px;height:58px;font-size:13px}
+#bP{right:calc(var(--sr) + 12px);top:calc(var(--st) + 10px);width:44px;height:44px;border-radius:14px!important;font-size:15px}
 #loading{position:fixed;inset:0;display:grid;place-items:center;background:#123a7a;z-index:20;font-size:18px}
 </style>
 </head>
@@ -82,13 +83,11 @@ td.r{text-align:right;font-variant-numeric:tabular-nums}
 <canvas id="hud"></canvas>
 <div id="loading">加载中…</div>
 <div id="ctrl" class="hide">
-  <button id="bL" aria-label="左">◀</button>
-  <button id="bR" aria-label="右">▶</button>
-  <button id="bD" aria-label="漂移">漂移</button>
-  <button id="bI" aria-label="道具">道具</button>
-  <button id="bB" aria-label="刹车">刹车</button>
-  <button id="bM" aria-label="视角">视角</button>
-  <button id="bP" aria-label="暂停">II</button>
+  <div id="steerZone" aria-label="转向区：按住左右滑动"></div>
+  <button class="cb" id="bD" aria-label="漂移">漂移<small>按住转弯</small></button>
+  <button class="cb" id="bI" aria-label="道具"><span id="bIicon">·</span><small>道具</small></button>
+  <button class="cb" id="bB" aria-label="刹车">刹车</button>
+  <button class="cb" id="bP" aria-label="暂停">II</button>
 </div>
 
 <div class="screen" id="menu">
@@ -132,6 +131,7 @@ td.r{text-align:right;font-variant-numeric:tabular-nums}
     <h2>暂停</h2>
     <div class="row" style="flex-direction:column;align-items:stretch">
       <button class="btn primary" id="pResume">继续</button>
+      <button class="btn" id="pCam">切换视角</button>
       <button class="btn" id="pRestart">重新开始</button>
       <button class="btn" id="pQuit">退出到菜单</button>
     </div>
@@ -579,11 +579,17 @@ addEventListener('keydown',e=>{keys[e.code]=true;if(e.repeat)return;
 });
 addEventListener('keyup',e=>{keys[e.code]=false});
 function hold(id,k,fn){const b=$(id);const dn=e=>{e.preventDefault();e.stopPropagation();initAudio();btn[k]=1;b.classList.add('on');if(fn)fn()};const up=()=>{btn[k]=0;b.classList.remove('on')};b.addEventListener('pointerdown',dn);b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up)}
-hold('bL','l');hold('bR','r');hold('bD','d');hold('bB','b');
+hold('bD','d');hold('bB','b');
 $('bI').addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();useItem(me)});
-$('bP').addEventListener('click',()=>openPause());$('bM').addEventListener('click',()=>toggleCam());
+$('bP').addEventListener('click',()=>openPause());$('pCam').onclick=()=>{toggleCam();resume()};
+/* 模拟转向：左半屏任意位置按住左右滑，滑得越远转得越急 */
+const pad={on:false,id:null,ox:0,oy:0,x:0,y:0};const sz=$('steerZone');
+sz.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();if(pad.on)return;pad.on=true;pad.id=e.pointerId;pad.ox=pad.x=e.clientX;pad.oy=pad.y=e.clientY;try{sz.setPointerCapture(e.pointerId)}catch(_){}});
+sz.addEventListener('pointermove',e=>{if(!pad.on||e.pointerId!==pad.id)return;pad.x=e.clientX;pad.y=e.clientY;const m=64;if(pad.x-pad.ox>m)pad.ox=pad.x-m;if(pad.x-pad.ox<-m)pad.ox=pad.x+m});
+const padEnd=e=>{if(e.pointerId===pad.id){pad.on=false;pad.id=null}};sz.addEventListener('pointerup',padEnd);sz.addEventListener('pointercancel',padEnd);
+const buzz=ms=>{try{if(navigator.vibrate)navigator.vibrate(ms)}catch(_){}};
 function toggleCam(){camMode=(camMode+1)%3;save.cam=camMode;persist();pop(['标准视角','远景视角','近景视角'][camMode],'#fff',0.8)}
-const steerIn=()=>clamp(((keys.ArrowRight||keys.KeyD||btn.r)?1:0)-((keys.ArrowLeft||keys.KeyA||btn.l)?1:0),-1,1);
+const steerIn=()=>{const k=((keys.ArrowRight||keys.KeyD)?1:0)-((keys.ArrowLeft||keys.KeyA)?1:0);if(k)return k;if(pad.on){const d=(pad.x-pad.ox)/58;const a=Math.abs(d)<0.07?0:clamp(d,-1,1);return Math.sign(a)*Math.pow(Math.abs(a),1.2)}return 0};
 const driftIn=()=>!!(keys.Space||keys.ShiftLeft||keys.ShiftRight||btn.d);
 const brakeIn=()=>!!(keys.ArrowDown||keys.KeyS||btn.b);
 function pop(text,color,t){pops.push({text,color:color||'#fff',t:t||1,max:t||1})}
@@ -615,7 +621,7 @@ function hitKart(k,src){
   if(k.shieldT>0){k.shieldT=0;if(!k.ai||src===me)sfx('shield');return}
   k.spinT=1.2;k.v*=0.3;k.drift=0;k.dT=0;k.boostT=0;
   const lose=Math.min(k.coins,3);k.coins-=lose;for(let i=0;i<lose;i++)emit(k.x,k.y+1.2,k.z,(Math.random()-0.5)*6,6,(Math.random()-0.5)*6,'#ffd23f',0.8,14);
-  if(!k.ai){sfx('hit');pop('被击中！'+(lose?'掉了 '+lose+' 枚金币':''),'#ff4d6d',1)}else if(src===me){sfx('hit');pop('命中 '+k.ch.name+'！','#ffe14d',1)}
+  if(!k.ai){sfx('hit');buzz(80);pop('被击中！'+(lose?'掉了 '+lose+' 枚金币':''),'#ff4d6d',1)}else if(src===me){sfx('hit');pop('命中 '+k.ch.name+'！','#ffe14d',1)}
 }
 
 /* ============ 更新 ============ */
@@ -649,7 +655,7 @@ function updateKart(k,dt){
   else if(!k.air&&drift&&!k.drift&&Math.abs(k.steer)>0.25&&k.v>12&&k.hopY<=0.01){k.drift=1;k.dDir=Math.sign(k.steer);k.dT=0;k.hopV=4;if(!k.ai)sfx('hop')}
   if(k.drift&&(!drift||k.v<9)){
     const lv=k.dT>2.4?3:k.dT>1.5?2:k.dT>0.75?1:0;
-    if(lv){k.boostT=Math.max(k.boostT,[0,0.6,1.0,1.5][lv]*(1+S.mt));if(!k.ai){sfx('boost');pop(['','蓝色加速！','橙色加速！','紫色超级加速！'][lv],['','#4dc3ff','#ff9d1c','#c77dff'][lv],0.8)}}
+    if(lv){k.boostT=Math.max(k.boostT,[0,0.6,1.0,1.5][lv]*(1+S.mt));if(!k.ai){sfx('boost');buzz(25);pop(['','蓝色加速！','橙色加速！','紫色超级加速！'][lv],['','#4dc3ff','#ff9d1c','#c77dff'][lv],0.8)}}
     k.drift=0;k.dT=0;
   }
   if(k.drift)k.dT+=dt*(1+0.6*Math.max(0,k.steer*k.dDir))*(1+S.dc);
@@ -776,8 +782,9 @@ function drawHUD(dt){
   if(flash>0){hx.fillStyle='rgba(255,255,200,'+flash+')';hx.fillRect(0,0,W,H)}
   if(me.boostT>0){hx.strokeStyle='rgba(255,255,255,.35)';hx.lineWidth=2;hx.beginPath();for(let i=0;i<18;i++){const a=Math.random()*TAU,r1=Math.max(W,H)*(0.38+Math.random()*0.15),r2=r1+50+Math.random()*60;hx.moveTo(W/2+Math.cos(a)*r1,H*0.45+Math.sin(a)*r1*0.6);hx.lineTo(W/2+Math.cos(a)*r2,H*0.45+Math.sin(a)*r2*0.6)}hx.stroke()}
   hx.textBaseline='top';hx.textAlign='right';
-  const rk=me.rank;hx.font='italic 900 '+Math.round(54*ui)+'px sans-serif';hx.lineWidth=7;hx.strokeStyle='#0b3a8a';
-  const rx=W-(isTouch?120:20);hx.strokeText(ORD[rk],rx,top);hx.fillStyle=rk===1?'#ffd23f':rk<=3?'#ffffff':'#cfe0ff';hx.fillText(ORD[rk],rx,top);
+  const rk=me.rank;const rx=W-70;const pw=150*ui,ph=(gp?126:104)*ui;
+  hx.fillStyle='rgba(8,30,80,.42)';hx.strokeStyle='rgba(255,255,255,.45)';hx.lineWidth=2;rbox(rx-pw+10,top-4,pw,ph,16);hx.fill();hx.stroke();
+  hx.font='italic 900 '+Math.round(54*ui)+'px sans-serif';hx.lineWidth=7;hx.strokeStyle='#0b3a8a';hx.strokeText(ORD[rk],rx,top);hx.fillStyle=rk===1?'#ffd23f':rk<=3?'#ffffff':'#cfe0ff';hx.fillText(ORD[rk],rx,top);
   hx.font='bold '+Math.round(16*ui)+'px sans-serif';hx.lineWidth=4;const lt='圈 '+Math.min(LAPS,Math.max(1,me.lap))+'/'+LAPS+'  '+fmt(raceT);hx.strokeText(lt,rx,top+58*ui);hx.fillStyle='#fff';hx.fillText(lt,rx,top+58*ui);
   const ct='🪙 '+me.coins+'/10';hx.strokeText(ct,rx,top+80*ui);hx.fillStyle='#ffd23f';hx.fillText(ct,rx,top+80*ui);
   if(gp){const gt=CUPS[gp.cup].name+' 第 '+(gp.race+1)+'/3 场';hx.strokeText(gt,rx,top+102*ui);hx.fillStyle='#cfe0ff';hx.fillText(gt,rx,top+102*ui)}
@@ -794,6 +801,7 @@ function drawHUD(dt){
   // 小地图
   if(!mini){let x0=1e9,x1=-1e9,z0=1e9,z1=-1e9;for(const p of P){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);z0=Math.min(z0,p.z);z1=Math.max(z1,p.z)}mini={x0,x1,z0,z1}}
   const ms=Math.round(110*ui),mx=16,my=by+bs+26*ui,k=ms/Math.max(mini.x1-mini.x0,mini.z1-mini.z0);
+  hx.fillStyle='rgba(8,30,80,.35)';rbox(mx-8,my-8,ms+16,ms+16,16);hx.fill();
   const mp=(x,z)=>[mx+ms-(x-mini.x0)*k,my+(z-mini.z0)*k];
   hx.lineWidth=5;hx.strokeStyle='rgba(0,0,0,.35)';hx.beginPath();for(let i=0;i<=N;i+=8){const[a,b]=mp(P[i%N].x,P[i%N].z);i?hx.lineTo(a,b):hx.moveTo(a,b)}hx.stroke();
   hx.lineWidth=2.5;hx.strokeStyle='#fff';hx.stroke();
@@ -808,7 +816,18 @@ function drawHUD(dt){
     hx.font='bold '+Math.round(15*ui)+'px sans-serif';hx.lineWidth=4;const t='「1」快消失时按住漂移 = 火箭起步';hx.strokeText(t,W/2,H*0.55);hx.fillStyle='#fff';hx.fillText(t,W/2,H*0.55)}
   let py=H*0.26;for(const p of pops){p.t-=dt;const a=clamp(Math.min(p.t*3,(p.max-p.t)*10),0,1);hx.globalAlpha=a;hx.font='italic 900 '+Math.round(30*ui)+'px sans-serif';hx.lineWidth=6;hx.strokeStyle='#0b3a8a';hx.strokeText(p.text,W/2,py);hx.fillStyle=p.color;hx.fillText(p.text,W/2,py);py+=38*ui}hx.globalAlpha=1;pops=pops.filter(p=>p.t>0);
   if(H>W*1.1){hx.font='14px sans-serif';hx.fillStyle='rgba(255,255,255,.8)';hx.fillText('📱 横过来玩效果更好',W/2,H*0.62)}
+  if(isTouch){
+    // 转向指示：按住时在手指处显示方向盘
+    const cx=pad.on?pad.ox:Math.max(110,safeB+110),cy=pad.on?pad.oy:H-safeB-90;
+    hx.globalAlpha=pad.on?0.9:0.5;hx.strokeStyle='rgba(255,255,255,.7)';hx.lineWidth=3;rbox(cx-80,cy-22,160,44,22);hx.stroke();hx.fillStyle='rgba(8,30,80,.3)';hx.fill();
+    const kx=cx+clamp(pad.on?pad.x-pad.ox:0,-64,64);hx.fillStyle='#fff';hx.beginPath();hx.arc(kx,cy,18,0,TAU);hx.fill();
+    hx.fillStyle='rgba(255,255,255,.8)';hx.font='bold 16px sans-serif';hx.textAlign='center';hx.textBaseline='middle';hx.fillText('◀',cx-58,cy);hx.fillText('▶',cx+58,cy);
+    if(!pad.on&&raceT<8){hx.font='bold 12px sans-serif';hx.fillText('左半屏按住 左右滑动 转向',cx,cy-38)}
+    hx.globalAlpha=1;
+    const ic=me.items[0]?(me.rollT>0?'…':(me.items[0].id==='triple'?'🚀':ITEMS[me.items[0].id].icon)):'·';if(ic!==lastItemIcon){lastItemIcon=ic;$('bIicon').textContent=ic}
+  }
 }
+let lastItemIcon='';
 
 /* ============ 结算 / 杯赛 ============ */
 function finishRace(){
@@ -889,7 +908,7 @@ function openGarage(){
 }
 function startRace(i){
   initAudio();mini=null;newRace(i);showScreen(null);$('result').hidden=true;$('ctrl').classList.remove('hide');
-  for(const id of['bL','bR','bD','bI','bB'])$(id).classList.toggle('hide',!isTouch);
+  for(const id of['steerZone','bD','bI','bB'])$(id).classList.toggle('hide',!isTouch);
   updateCamera(0,true);startEngine();setStartLights(4);GameMusic.stop();GameMusic.jingle('music/j-start.m4a',0.9);last=performance.now();
 }
 let pausedFrom='race';

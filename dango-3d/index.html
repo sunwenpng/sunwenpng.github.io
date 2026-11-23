@@ -150,6 +150,7 @@ const dotTex=ctex(64,64,(g)=>{const gr=g.createRadialGradient(32,32,0,32,32,32);
 const THEMES={
   grass:{sky:['#4fb6ff','#c9ecff'],fog:0xc9ecff,top:0x5ccf4a,side:0x9a6a3c,side2:0x8a5c32,sea:0x2f9fe8,seaE:0x0a3a6a,deco:1,music:0},
   sky:{sky:['#8f7bff','#ffc9e6'],fog:0xffd9ec,top:0xfffafd,side:0xb9a8ff,side2:0xa898f5,sea:0xffc0de,seaE:0x553344,deco:0,cloud:1,music:1},
+  ice:{sky:['#7fc4ff','#eef8ff'],fog:0xe6f3ff,top:0xffffff,side:0x9fd4ff,side2:0x8cc8f5,sea:0x4a9ad8,seaE:0x0a2a4a,deco:0,snow:1,music:3},
   castle:{sky:['#2a0f1f','#7a2a1a'],fog:0x5a1f14,top:0x6a6f80,side:0x50545f,side2:0x464a55,sea:0xff6a1a,seaE:0xff3a00,deco:0,lava:1,music:2},
 };
 
@@ -182,7 +183,7 @@ const SONGS=[
   {bpm:120,prog:[[62,66,69],[67,71,74],[64,67,71],[69,73,76]],mel:[19,null,null,21,19,16,null,14,16,null,19,null,21,null,null,null],wave:'triangle'},
   {bpm:132,prog:[[57,60,64],[53,57,60],[52,56,59],[57,60,64]],mel:[12,15,12,null,11,null,12,null,15,17,15,null,12,null,null,null],wave:'square'},
 ];
-const LV_MUSIC={'1-1':'stage1','1-2':'level1','1-3':'stage2','2-1':'sky','2-2':'castle','2-3':'boss'};
+const LV_MUSIC={'1-1':'stage1','1-2':'level1','1-3':'stage2','2-1':'sky','2-2':'castle','2-3':'boss','3-1':'ice1','3-2':'ice2','3-3':'ice3'};
 GameMusic.setVolume(0.55);GameMusic.setEnabled(!!save.music);
 function startMusic(){if(level)GameMusic.play('music/'+(LV_MUSIC[level.id]||'stage1')+'.m4a',{fade:0.4})}
 function stopMusic(){GameMusic.pause()}
@@ -220,11 +221,15 @@ const B={
     }else if(kind==='q'||kind==='brick'||kind==='used'){
       s.body=add(geo('cube',()=>new THREE.BoxGeometry(1,1,1)),new THREE.MeshLambertMaterial({map:TEX[kind]}),0,0,0);
     }else if(kind==='stone'){add(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({map:TEX.stone,color:0xb0b6c8}),0,0,0)}
+    else if(kind==='ice'){const im=new THREE.MeshPhongMaterial({color:0xaee4ff,emissive:0x1a4466,shininess:120,specular:0xffffff,transparent:true,opacity:0.86});add(new THREE.BoxGeometry(w,h,d),im,0,0,0);add(new THREE.BoxGeometry(w+0.08,0.1,d+0.08),new THREE.MeshPhongMaterial({color:0xffffff,shininess:100}),0,h/2-0.02,0)}
     else if(kind==='wood'){add(new THREE.BoxGeometry(w,h,d),mat(0xb5793d),0,0,0);add(new THREE.BoxGeometry(w+0.06,0.12,d+0.06),mat(0xd99a55),0,h/2-0.04,0)}
     else if(kind==='faller'){add(new THREE.BoxGeometry(w,h,d),mat(0xffe08a),0,0,0);add(new THREE.BoxGeometry(w*0.7,0.06,d*0.7),mat(0xffb84d),0,h/2+0.01,0)}
     else{add(new THREE.BoxGeometry(w,h,d),mat(0x999999),0,0,0)}
     level.solids.push(s);return s;
   },
+  ice(x,z,w,d,top,h){return B.solid(x-w/2,x+w/2,top-(h||1.2),top,z-d/2,z+d/2,'ice')},
+  pine(x,y,z,s){s=s||1;mesh(geo('ptrunk',()=>new THREE.CylinderGeometry(0.2,0.28,1,6)),mat(0x6b4a2a),x,y+0.5*s,z).scale.setScalar(s);for(let k=0;k<3;k++){const c=mesh(geo('pcone'+k,()=>new THREE.ConeGeometry(1.2-k*0.3,1.3,8)),mat(0x2a6b4a),x,y+(1.2+k*0.75)*s,z);c.scale.setScalar(s);const w=mesh(geo('pcap'+k,()=>new THREE.ConeGeometry(0.75-k*0.2,0.6,8)),mat(0xffffff),x,y+(1.5+k*0.75)*s,z);w.scale.setScalar(s)}},
+  snowman(x,y,z){mesh(geo('sm1',()=>new THREE.SphereGeometry(0.6,14,10)),mat(0xffffff),x,y+0.55,z);mesh(geo('sm2',()=>new THREE.SphereGeometry(0.42,14,10)),mat(0xffffff),x,y+1.35,z);mesh(geo('smn',()=>new THREE.ConeGeometry(0.08,0.35,8)),mat(0xff8a1a),x,y+1.35,z+0.5).rotation.x=Math.PI/2;const h=mesh(geo('smh',()=>new THREE.CylinderGeometry(0.28,0.3,0.4,12)),mat(0x222222),x,y+1.85,z);mesh(geo('sme',()=>new THREE.SphereGeometry(0.05,6,4)),mat(0x111111),x-0.14,y+1.45,z+0.38);mesh(geo('sme',null),mat(0x111111),x+0.14,y+1.45,z+0.38)},
   ground(x0,x1,z0,z1,top,depth,kind){return B.solid(x0,x1,(top||0)-(depth||5),top||0,z0,z1,kind||'ground')},
   plat(x,z,w,d,top,h){return B.solid(x-w/2,x+w/2,top-(h||1),top,z-d/2,z+d/2,'plat')},
   stone(x0,x1,y0,y1,z0,z1){return B.solid(x0,x1,y0,y1,z0,z1,'stone')},
@@ -240,7 +245,7 @@ const B={
     const got=(save.lv[level.id]||{}).stars&(1<<id);
     const m=mesh(g,new THREE.MeshLambertMaterial({color:got?0x9fd8ff:0xffd23f,emissive:got?0x224466:0x775500,transparent:!!got,opacity:got?0.6:1}),x,y,z);level.stars.push({x,y,z,mesh:m,got:false,id,old:!!got})},
   spring(x,y,z){const g=new THREE.Group();g.position.set(x,y,z);world.add(g);const b=new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.6,0.3,16),mat(0xe0303a));b.position.y=0.15;b.castShadow=true;g.add(b);const coil=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,0.4,10,1,true),mat(0x999999));coil.position.y=0.45;g.add(coil);const top=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,0.15,16),mat(0xffd23f));top.position.y=0.7;top.castShadow=true;g.add(top);level.springs.push({x,y,z,top,coil,t:0})},
-  bar(x,y,z,len,speed,phase){const g=new THREE.Group();g.position.set(x,y,z);world.add(g);const balls=[];for(let i=0;i<len;i++){const b=new THREE.Mesh(geo('fire',()=>new THREE.SphereGeometry(0.28,10,8)),mat(0xff7a1a,0xff4a00));b.position.x=i*0.55;g.add(b);balls.push(b)}
+  bar(x,y,z,len,speed,phase){const g=new THREE.Group();g.position.set(x,y,z);world.add(g);const balls=[];for(let i=0;i<len;i++){const b=new THREE.Mesh(geo('fire',()=>new THREE.SphereGeometry(0.28,10,8)),TH.snow?mat(0x8fe4ff,0x2a7acc):mat(0xff7a1a,0xff4a00));b.position.x=i*0.55;g.add(b);balls.push(b)}
     const piv=new THREE.Mesh(geo('cube',()=>new THREE.BoxGeometry(1,1,1)),new THREE.MeshLambertMaterial({map:TEX.used}));piv.position.set(x,y,z);world.add(piv);
     level.solids.push({x0:x-0.5,x1:x+0.5,y0:y-0.5,y1:y+0.5,z0:z-0.5,z1:z+0.5,kind:'used',active:true,dx:0,dy:0,dz:0,mesh:piv});
     level.bars.push({x,y,z,len,speed,a:phase||0,g})},
@@ -375,8 +380,50 @@ const LEVELS=[
     B.stone(-2,2,-5,0,-34,-40);
     B.star(-8,1.5,-12);B.star(8,1.5,-12);B.star(0,1.5,-30);
   },killY:-1.2},
+  {id:'3-1',name:'冰晶山道',theme:'ice',build(){
+    B.ground(-4,4,4,-10,0);B.coins(0,1,-3,4,0,-1.6);B.snowman(-2.6,0,-2);
+    B.ice(0,-12.5,3,3,0.6);B.ice(2.5,-16.5,3,3,1.2);B.ice(0,-20.5,3,3,1.8);B.coins(0,2.8,-20.5,1);
+    B.ground(-4,4,-24,-36,1.8);B.walker(-1,1.8,-28,'x',2,1.6);B.spiky(2,1.8,-32,'x',1.5,1.2);
+    B.q(0,5.3,-27,'power');B.brick(1,5.3,-27);B.brick(-1,5.3,-27);
+    B.spring(-3,1.8,-34.6);B.plat(-3.2,-31,2.2,2.2,7);B.star(-3.2,8.4,-31);
+    B.ice(0,-44,6,12,1.8);B.spiky(-1.5,1.8,-41,'x',2,1.4);B.spiky(1.5,1.8,-45.5,'x',2,1.6);B.coins(0,2.8,-39,5,0,-1.8);
+    B.check(0,1.8,-49);
+    B.mover(0,1.8,-54,3,3,0,0,2.5,4);
+    B.ground(-5,5,-59,-80,2);B.flyer(0,3.4,-63,'x',3,1.5);B.walker(-2,2,-67,'x',2,1.8);B.walker(2,2,-72,'z',2,1.6);
+    B.ground(3,5,-64,-66,3.5);B.ground(3,5,-66,-68,5);B.star(4,6.4,-67);
+    B.ground(-8,-6,-70,-72,2.6);B.star(-7,3.8,-71);
+    B.goal(0,2,-77);
+    for(const[x,z,y]of[[-3.6,1,0],[3.6,-3,0],[-3.5,-25,1.8],[3.5,-35,1.8],[-4.4,-60,2],[4.4,-75,2],[-4.4,-78,2]])B.pine(x,y,z,0.9);B.snowman(3,2,-61);
+  }},
+  {id:'3-2',name:'雪球滑道',theme:'ice',build(){
+    B.ground(-4,4,4,-8,0);B.coins(0,1,-2,3,0,-1.6);
+    B.faller(0,0.5,-11,2.6,2.6);B.faller(2.5,1.2,-14.5,2.6,2.6);B.faller(0,1.8,-18,2.6,2.6);
+    B.ice(0,-23,4,4,1.8);B.coins(0,2.8,-23,1);
+    B.mover(0,1.8,-29,3,3,3,0,0,3.5);B.mover(0,2.6,-34,3,3,-3,0,0,3.5);
+    B.ground(-4,4,-38,-50,2.6);B.check(0,2.6,-40);B.walker(-1.5,2.6,-44,'x',2,1.8);B.walker(1.5,2.6,-48,'x',2,1.6);
+    B.q(-1,6.1,-43,'power');B.q(1,6.1,-43,'coins5');B.spring(3.5,2.6,-46.5);B.star(3.5,6.6,-46.5);
+    B.mover(0,2.6,-54,3,3,0,3,0,4);B.star(0,9,-54);
+    B.ground(-2,2,-58,-62,6.5);B.snowman(-1.2,6.5,-61);
+    B.faller(0,6.8,-65,2.6,2.6);B.faller(-2.5,7.4,-68.5,2.6,2.6);
+    B.ice(0,-74,6,6,7.4);B.ice(5.5,-74,2,2,8.4);B.star(5.5,9.6,-74);
+    B.goal(0,7.4,-75.5);
+    for(const[x,z]of[[-3.6,2],[3.6,-4],[-3.6,-49],[3.6,-39]])B.pine(x,z===2||z===-4?0:2.6,z,0.9);
+  }},
+  {id:'3-3',name:'冰雪城堡',theme:'ice',build(){
+    B.ground(-4,4,4,-8,0);B.coins(0,1,-3,3,0,-1.5);
+    B.ice(0,-11.5,3,3,0.5);B.bar(0,1.4,-11.5,5,1.6);
+    B.ice(0,-16,3,3,1);B.ground(-4,4,-19,-31,1);B.check(0,1,-21);B.spiky(-2,1,-25,'x',1.5,1.4);B.spiky(2,1,-29,'x',1.5,1.6);B.walker(0,1,-27,'z',2,1.4);B.q(0,4.5,-23,'power');
+    B.mover(0,1,-35,3,3,0,0,2.5,3.4);B.mover(0,1,-41,3,3,0,0,-2.5,3.4);
+    B.ground(-4,4,-46,-60,1);B.bar(-2,1.6,-50,4,2);B.bar(2,1.6,-55,4,-2);B.walker(0,1,-58,'x',3,2);
+    B.ground(5,7,-50,-53,2);B.ground(8,10,-50,-53,3);B.star(9,4.3,-51.5);
+    B.ice(0,-64.5,3,3,1.6);B.ice(0,-70.5,3,3,2.3);B.bar(0,3.9,-70.5,5,1.8);B.star(0,6.7,-70.5);
+    B.ground(-5,5,-75,-92,1);B.spiky(-2,1,-79,'x',1.5,1.6);B.spiky(2,1,-83,'x',1.5,1.8);B.flyer(0,2.4,-86,'x',3,1.6);B.q(0,4.5,-81,'life');B.star(-4,2,-88);
+    B.goal(0,1,-89);
+    for(const[x,z]of[[-4.5,0],[4.5,0],[-4.5,-28],[4.5,-28],[-4.5,-78],[4.5,-78]])B.pillar(x,z,6);
+    B.snowman(3,1,-90);B.snowman(-3,1,-90);
+  }},
 ];
-const WORLDS=[{name:'第一世界 · 青草原',lv:[0,1,2],c:'linear-gradient(180deg,#4fb6ff 0 55%,#5ccf4a 55%)'},{name:'第二世界 · 云与火',lv:[3,4,5],c:'linear-gradient(180deg,#ff9fcf 0 45%,#7a2a1a 45%)'}];
+const WORLDS=[{name:'第一世界 · 青草原',lv:[0,1,2],c:'linear-gradient(180deg,#4fb6ff 0 55%,#5ccf4a 55%)'},{name:'第二世界 · 云与火',lv:[3,4,5],c:'linear-gradient(180deg,#ff9fcf 0 45%,#7a2a1a 45%)'},{name:'第三世界 · 冰雪国',lv:[6,7,8],c:'linear-gradient(180deg,#7fc4ff 0 55%,#f4fbff 55%)'}];
 
 /* ============ 玩家 ============ */
 let me=null,lvIdx=0,state='menu',lvT=0,coins=0,lives=5,respawn=null,deadT=0,clearT=0,camMode=save.cam||0,pops=[];
@@ -411,6 +458,7 @@ function loadLevel(i){
   if(TH.cloud){for(let i=0;i<40;i++){const c=new THREE.Mesh(geo('bigpuff',()=>new THREE.SphereGeometry(3,10,8)),mat(0xffffff,0x553344));c.position.set((Math.random()-0.5)*120,-4+Math.random()*2,10-Math.random()*130);c.scale.set(1+Math.random()*2,0.6,1+Math.random());world.add(c)}}
   if(TH.deco){for(let i=0;i<14;i++){const h=12+Math.random()*16;const m=new THREE.Mesh(new THREE.SphereGeometry(h,14,10,0,TAU,0,Math.PI/2),mat(0x7ad06a));m.position.set((Math.random()<0.5?-1:1)*(30+Math.random()*40),-3.5,-Math.random()*110);m.scale.y=0.6;world.add(m)}
     for(let i=0;i<12;i++){const c=new THREE.Group();for(let k=0;k<3;k++){const s=new THREE.Mesh(geo('cl',()=>new THREE.SphereGeometry(2.2,10,8)),mat(0xffffff,0x666666));s.position.set(k*2.6-2.6,Math.random(),0);c.add(s)}c.position.set((Math.random()-0.5)*90,18+Math.random()*12,-Math.random()*120);world.add(c)}}
+  if(TH.snow){const n=600,g=new THREE.BufferGeometry(),a=new Float32Array(n*3);for(let i=0;i<n;i++){a[i*3]=(Math.random()-0.5)*40;a[i*3+1]=Math.random()*24;a[i*3+2]=(Math.random()-0.5)*40}g.setAttribute('position',new THREE.BufferAttribute(a,3));const pts=new THREE.Points(g,new THREE.PointsMaterial({color:0xffffff,size:0.14,transparent:true,opacity:0.9}));pts.frustumCulled=false;world.add(pts);level.snowPts=pts}
   if(TH.lava){for(let i=0;i<30;i++){const m=new THREE.Mesh(geo('ember',()=>new THREE.SphereGeometry(0.12,6,4)),mat(0xffaa33,0xff6600));m.position.set((Math.random()-0.5)*30,-1.4,-Math.random()*100);world.add(m);level.parts.push(m)}}
   if(!me||!me.m){me=newPlayer(0,0,0);me.m=makeHero()}
   respawn={...level.start};spawnPlayer();
@@ -500,10 +548,10 @@ function updatePlayer(dt){
   p.inv=Math.max(0,p.inv-dt);p.jbuf=Math.max(0,p.jbuf-dt);
   p.hw=p.big?0.42:0.36;p.h=p.big?1.25:0.95;
   const[ix,iz]=moveIn();const run=runHeld()||(isTouch&&Math.hypot(ix,iz)>0.95);
-  const maxS=run?9:6.2,acc=p.ground?40:22;
+  const onIce=p.ground&&p.ground.kind==='ice';const maxS=run?9:6.2,acc=p.ground?(onIce?10:40):22;
   const tvx=ix*maxS,tvz=iz*maxS;
   p.vx+=clamp(tvx-p.vx,-acc*dt,acc*dt);p.vz+=clamp(tvz-p.vz,-acc*dt,acc*dt);
-  if(!ix&&p.ground){p.vx*=Math.pow(0.0005,dt)}if(!iz&&p.ground){p.vz*=Math.pow(0.0005,dt)}
+  const fr=onIce?0.45:0.0005;if(!ix&&p.ground){p.vx*=Math.pow(fr,dt)}if(!iz&&p.ground){p.vz*=Math.pow(fr,dt)}
   // 平台携带
   if(p.ground&&(p.ground.dx||p.ground.dy||p.ground.dz)){p.x+=p.ground.dx;p.z+=p.ground.dz;p.y+=p.ground.dy}
   // 跳跃
@@ -590,6 +638,7 @@ function updateWorld(dt){
   // 首领战结束后出现的终点星
   for(const f of fxs){f.t-=dt}for(let i=fxs.length-1;i>=0;i--)if(fxs[i].t<=0)fxs.splice(i,1);
   for(const m of level.parts){m.position.y+=dt*(0.5+Math.random());if(m.position.y>4)m.position.y=-1.4}
+  if(level.snowPts){const sp=level.snowPts,a=sp.geometry.attributes.position.array;for(let i=0;i<a.length;i+=3){a[i+1]-=dt*1.6;a[i]+=Math.sin(lvTime+i)*dt*0.3;if(a[i+1]<-3)a[i+1]+=26}sp.position.set(me.x,me.y-6,me.z-6);sp.geometry.attributes.position.needsUpdate=true}
   if(level.sea&&TH.lava)level.sea.material.emissiveIntensity=0.8+Math.sin(lvTime*2)*0.2;
 }
 function updateBoss(e,dt){

@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2a170c">
+<title>中国象棋</title>
+<meta name="description" content="3D 中国象棋：完整规则、人机三档难度、双人同屏、悔棋、提示。">
+<style>
+:root{--bg:#1c0f08;--panel:rgba(40,22,12,.82);--line:rgba(255,220,170,.25);--fg:#fff4e2;--muted:#e6cfae;--gold:#ffd27a;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.bar{position:fixed;left:0;right:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 max(10px,var(--sr)) 0 max(10px,var(--sl));z-index:5;pointer-events:none}
+.bar>*{pointer-events:auto}
+#topBar{top:calc(var(--st) + 8px);justify-content:space-between;align-items:center}
+#botBar{bottom:calc(var(--sb) + 10px)}
+.b{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:9px 14px;font-size:15px;font-weight:700;min-height:42px;backdrop-filter:blur(4px)}
+.b.primary{background:linear-gradient(180deg,#f7c66b,#d18a2c);color:#3a1d00;border-color:#ffe0a0}
+.b:disabled{opacity:.4}
+@media (hover:hover){.b:not(:disabled):hover{filter:brightness(1.15)}}
+.status{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font-size:15px;font-weight:700;backdrop-filter:blur(4px)}
+.dot{width:18px;height:18px;border-radius:50%;border:3px solid #e3c08a}.dot.red{background:#c0281f}.dot.black{background:#151515}
+.home{color:var(--muted);text-decoration:none;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+.screen{position:fixed;inset:0;display:flex;padding:calc(var(--st) + 14px) max(16px,var(--sr)) calc(var(--sb) + 14px) max(16px,var(--sl));background:rgba(20,10,4,.72);backdrop-filter:blur(4px);z-index:10;overflow:auto}
+.screen[hidden]{display:none}
+.box{margin:auto;width:100%;max-width:440px;background:linear-gradient(180deg,#4a2a16,#2c170b);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{margin:0 0 4px;text-align:center;font-size:40px;letter-spacing:.2em;font-family:"KaiTi","STKaiti","Kaiti SC",serif;color:#ffe2a8;text-shadow:0 3px 0 #6a3a10}
+h2{margin:0 0 10px;text-align:center;font-size:24px}
+.sub{text-align:center;color:var(--muted);font-size:13px;margin:4px 0 14px;line-height:1.6}
+.opt{margin:12px 0}.opt>span{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.seg{display:flex;gap:6px}.seg button{flex:1;border:1px solid var(--line);background:rgba(0,0,0,.25);border-radius:12px;padding:10px 6px;font-size:15px;font-weight:700}
+.seg button.sel{background:linear-gradient(180deg,#f7c66b,#d18a2c);color:#3a1d00}
+.row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.rec{text-align:center;color:var(--muted);font-size:13px;margin-top:12px}
+.big{font-size:64px;text-align:center;margin:0}
+.hide{display:none!important}
+#toast{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 22px;font-weight:900;font-size:22px;z-index:8;opacity:0;transition:opacity .25s;pointer-events:none;font-family:"KaiTi","STKaiti","Kaiti SC",serif}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="bar" id="topBar">
+  <a class="home" href="../">← 大厅</a>
+  <div class="status"><span class="dot red" id="turnDot"></span><span id="turnText">红方先行</span></div>
+  <button class="b" id="bMenu">菜单</button>
+</div>
+<div class="bar" id="botBar">
+  <button class="b" id="bUndo">悔棋</button>
+  <button class="b" id="bHint">提示</button>
+  <button class="b" id="bView">俯视</button>
+  <button class="b" id="bMusic">音乐：开</button>
+</div>
+<div id="toast"></div>
+
+<div class="screen" id="setup">
+  <div class="box">
+    <h1>象棋</h1>
+    <p class="sub">点自己的棋子，再点亮起的落点走棋。吃掉对方的将（帅）就赢了。</p>
+    <div class="opt"><span>对手</span><div class="seg" id="segMode"><button data-v="ai" class="sel">电脑</button><button data-v="pvp">双人同屏</button></div></div>
+    <div class="opt" id="optLevel"><span>难度</span><div class="seg" id="segLevel"><button data-v="1">简单</button><button data-v="2" class="sel">普通</button><button data-v="3">困难</button></div></div>
+    <div class="opt" id="optSide"><span>我执</span><div class="seg" id="segSide"><button data-v="r" class="sel">红方（先手）</button><button data-v="b">黑方（后手）</button></div></div>
+    <div class="row"><button class="b primary" id="bStart" style="min-width:160px">开始对局</button></div>
+    <div class="rec" id="rec"></div>
+  </div>
+</div>
+
+<div class="screen" id="over" hidden>
+  <div class="box">
+    <p class="big" id="oIcon">🏆</p>
+    <h2 id="oTitle">你赢了！</h2>
+    <p class="sub" id="oSub"></p>
+    <div class="row"><button class="b primary" id="bAgain">再来一局</button><button class="b" id="bReview">看棋盘</button><button class="b" id="bSetup">换设置</button></div>
+  </div>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/music.js"></script>
+<script src="../lib/boardkit.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const S=1.0,BW=9.8,BD=10.8;
+const SKEY='xiangqi-v1';
+let save=(()=>{try{return Object.assign({mode:'ai',level:2,side:'r',music:1,w:0,l:0,view:'3d'},JSON.parse(localStorage.getItem(SKEY))||{})}catch(e){return{mode:'ai',level:2,side:'r',music:1,w:0,l:0,view:'3d'}}})();
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(save))}catch(e){}};
+
+/* ================= 规则引擎 ================= */
+// 棋盘 90 格，下标 r*9+c，r=0 在黑方底线，r=9 在红方底线。大写红方，小写黑方。
+const START='rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR';
+const NAME={K:'帅',A:'仕',B:'相',N:'马',R:'车',C:'炮',P:'兵',k:'将',a:'士',b:'象',n:'马',r:'车',c:'炮',p:'卒'};
+const VAL={K:10000,R:900,C:450,N:420,B:200,A:200,P:100};
+const isRed=p=>p&&p===p.toUpperCase();
+const side=p=>p?(isRed(p)?'r':'b'):null;
+function parse(fen){const b=new Array(90).fill(null);let r=0,c=0;for(const ch of fen){if(ch==='/'){r++;c=0}else if(/\d/.test(ch))c+=+ch;else{b[r*9+c]=ch;c++}}return b}
+const inPalace=(r,c,s)=>c>=3&&c<=5&&(s==='r'?r>=7:r<=2);
+function pseudo(b,s){
+  const mv=[];
+  for(let i=0;i<90;i++){const p=b[i];if(!p||side(p)!==s)continue;const r=(i/9)|0,c=i%9,t=p.toUpperCase();
+    const add=(rr,cc)=>{if(rr<0||rr>9||cc<0||cc>8)return;const j=rr*9+cc;const q=b[j];if(q&&side(q)===s)return;mv.push([i,j])};
+    if(t==='K'){for(const[dr,dc]of[[1,0],[-1,0],[0,1],[0,-1]]){const rr=r+dr,cc=c+dc;if(inPalace(rr,cc,s))add(rr,cc)}}
+    else if(t==='A'){for(const[dr,dc]of[[1,1],[1,-1],[-1,1],[-1,-1]]){const rr=r+dr,cc=c+dc;if(inPalace(rr,cc,s))add(rr,cc)}}
+    else if(t==='B'){for(const[dr,dc]of[[2,2],[2,-2],[-2,2],[-2,-2]]){const rr=r+dr,cc=c+dc;if(rr<0||rr>9||cc<0||cc>8)continue;if(s==='r'?rr<5:rr>4)continue;if(b[(r+dr/2)*9+c+dc/2])continue;add(rr,cc)}}
+    else if(t==='N'){for(const[dr,dc,lr,lc]of[[2,1,1,0],[2,-1,1,0],[-2,1,-1,0],[-2,-1,-1,0],[1,2,0,1],[-1,2,0,1],[1,-2,0,-1],[-1,-2,0,-1]]){const rr=r+dr,cc=c+dc;if(rr<0||rr>9||cc<0||cc>8)continue;if(b[(r+lr)*9+c+lc])continue;add(rr,cc)}}
+    else if(t==='R'||t==='C'){for(const[dr,dc]of[[1,0],[-1,0],[0,1],[0,-1]]){let rr=r+dr,cc=c+dc,screen=false;
+      while(rr>=0&&rr<=9&&cc>=0&&cc<=8){const q=b[rr*9+cc];
+        if(t==='R'){if(!q)mv.push([i,rr*9+cc]);else{if(side(q)!==s)mv.push([i,rr*9+cc]);break}}
+        else{if(!screen){if(!q)mv.push([i,rr*9+cc]);else screen=true}else if(q){if(side(q)!==s)mv.push([i,rr*9+cc]);break}}
+        rr+=dr;cc+=dc}}}
+    else if(t==='P'){const f=s==='r'?-1:1;add(r+f,c);const crossed=s==='r'?r<=4:r>=5;if(crossed){add(r,c-1);add(r,c+1)}}
+  }
+  return mv;
+}
+function kingPos(b,s){const k=s==='r'?'K':'k';for(let i=0;i<90;i++)if(b[i]===k)return i;return -1}
+function attacked(b,sq,by){for(const[f,t]of pseudo(b,by))if(t===sq)return true;return false}
+function inCheck(b,s){const k=kingPos(b,s);if(k<0)return true;const o=s==='r'?'b':'r';
+  // 将帅照面
+  const ok=kingPos(b,o);if(ok>=0&&ok%9===k%9){let clear=true;for(let i=Math.min(k,ok)+9;i<Math.max(k,ok);i+=9)if(b[i]){clear=false;break}if(clear)return true}
+  return attacked(b,k,o)}
+function legal(b,s){const out=[];for(const m of pseudo(b,s)){const cap=b[m[1]];b[m[1]]=b[m[0]];b[m[0]]=null;if(!inCheck(b,s))out.push(m);b[m[0]]=b[m[1]];b[m[1]]=cap}return out}
+
+/* ================= AI：α-β 搜索 ================= */
+const PST={
+  P:[0,0,0,0,0,0,0,0,0, 90,90,110,120,120,120,110,90,90, 90,90,110,120,120,120,110,90,90, 70,90,110,110,110,110,110,90,70, 70,70,70,70,70,70,70,70,70, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0],
+  N:[ 4,8,16,12,4,12,16,8,4, 4,10,28,16,8,16,28,10,4, 12,14,16,20,18,20,16,14,12, 8,24,18,24,20,24,18,24,8, 6,16,14,18,16,18,14,16,6, 4,12,16,14,12,14,16,12,4, 2,6,8,6,10,6,8,6,2, 4,2,8,8,4,8,8,2,4, 0,2,4,4,-2,4,4,2,0, 0,-4,0,0,0,0,0,-4,0],
+  R:[14,14,12,18,16,18,12,14,14, 16,20,18,24,26,24,18,20,16, 12,12,12,18,18,18,12,12,12, 12,18,16,22,22,22,16,18,12, 12,14,12,18,18,18,12,14,12, 12,16,14,20,20,20,14,16,12, 6,10,8,14,14,14,8,10,6, 4,8,6,14,12,14,6,8,4, 8,4,8,16,8,16,8,4,8, -2,10,6,14,12,14,6,10,-2],
+  C:[6,4,0,-10,-12,-10,0,4,6, 2,2,0,-4,-14,-4,0,2,2, 2,2,0,-10,-8,-10,0,2,2, 0,0,-2,4,10,4,-2,0,0, 0,0,0,2,8,2,0,0,0, -2,0,4,2,6,2,4,0,-2, 0,0,0,2,4,2,0,0,0, 4,0,8,6,10,6,8,0,4, 0,2,4,6,6,6,4,2,0, 0,0,2,6,6,6,2,0,0],
+};
+function evalBoard(b){let s=0;for(let i=0;i<90;i++){const p=b[i];if(!p)continue;const t=p.toUpperCase(),red=isRed(p);const idx=red?i:89-i;let v=VAL[t]+(PST[t]?PST[t][idx]:0);s+=red?v:-v}return s}
+let nodes=0,deadline=0,stop=false;
+function order(b,ms){return ms.map(m=>{const cap=b[m[1]];return{m,k:cap?VAL[cap.toUpperCase()]*10-VAL[b[m[0]].toUpperCase()]:0}}).sort((x,y)=>y.k-x.k).map(o=>o.m)}
+function search(b,s,depth,alpha,beta,ply){
+  if((++nodes&1023)===0&&performance.now()>deadline)stop=true;
+  if(stop)return 0;
+  const ms=legal(b,s);
+  if(!ms.length)return -20000+ply;
+  if(depth<=0)return quies(b,s,alpha,beta,0);
+  const o=s==='r'?'b':'r';
+  for(const m of order(b,ms)){
+    const cap=b[m[1]];b[m[1]]=b[m[0]];b[m[0]]=null;
+    const v=-search(b,o,depth-1,-beta,-alpha,ply+1);
+    b[m[0]]=b[m[1]];b[m[1]]=cap;
+    if(v>alpha){alpha=v;if(alpha>=beta)break}
+  }
+  return alpha;
+}
+function quies(b,s,alpha,beta,d){
+  const stand=(s==='r'?1:-1)*evalBoard(b);if(stand>=beta)return beta;if(stand>alpha)alpha=stand;if(d>=4)return alpha;
+  const o=s==='r'?'b':'r';
+  for(const m of order(b,pseudo(b,s).filter(m=>b[m[1]]))){
+    const cap=b[m[1]];if(cap.toUpperCase()==='K')return 15000;b[m[1]]=b[m[0]];b[m[0]]=null;
+    let v;if(inCheck(b,s))v=-Infinity;else v=-quies(b,o,-beta,-alpha,d+1);
+    b[m[0]]=b[m[1]];b[m[1]]=cap;
+    if(v>=beta)return beta;if(v>alpha)alpha=v;
+  }
+  return alpha;
+}
+function bestMove(b,s,lvl){
+  const ms=legal(b,s);if(!ms.length)return null;
+  const maxD=lvl===1?2:lvl===2?3:5,limit=lvl===1?300:lvl===2?900:2200;
+  deadline=performance.now()+limit;stop=false;nodes=0;
+  let best=ms[0],o=s==='r'?'b':'r';
+  let ordered=order(b,ms);
+  for(let d=1;d<=maxD;d++){
+    let bestV=-Infinity,cur=null;const scored=[];
+    for(const m of ordered){
+      const cap=b[m[1]];b[m[1]]=b[m[0]];b[m[0]]=null;
+      const v=-search(b,o,d-1,-Infinity,-bestV===Infinity?Infinity:-bestV+1,1)+(lvl===1?Math.random()*60:0);
+      b[m[0]]=b[m[1]];b[m[1]]=cap;
+      if(stop)break;scored.push({m,v});
+      if(v>bestV){bestV=v;cur=m}
+    }
+    if(stop&&!cur)break;
+    if(cur)best=cur;
+    if(stop)break;
+    scored.sort((x,y)=>y.v-x.v);ordered=scored.map(x=>x.m).concat(ordered.filter(m=>!scored.some(x=>x.m===m)));
+    if(bestV>15000)break;
+  }
+  return best;
+}
+
+/* ================= 3D ================= */
+const kit=BoardKit.create($('gl'),{size:BW,depth:BD,thick:0.8,feet:true,view:save.view,margin:1.02,drawTop(g,w,h){
+  BoardKit.wood(g,w,h,'#e8bd78','#b07e3a',9);
+  const u=w/BW,x0=w/2-4*S*u,y0=h/2-4.5*S*u,X=c=>x0+c*S*u,Y=r=>y0+r*S*u;
+  g.strokeStyle='#5a2e10';g.lineWidth=3;
+  for(let r=0;r<10;r++){g.beginPath();g.moveTo(X(0),Y(r));g.lineTo(X(8),Y(r));g.stroke()}
+  for(let c=0;c<9;c++){if(c===0||c===8){g.beginPath();g.moveTo(X(c),Y(0));g.lineTo(X(c),Y(9));g.stroke()}else{g.beginPath();g.moveTo(X(c),Y(0));g.lineTo(X(c),Y(4));g.moveTo(X(c),Y(5));g.lineTo(X(c),Y(9));g.stroke()}}
+  for(const[a,b2]of[[0,2],[7,9]]){g.beginPath();g.moveTo(X(3),Y(a));g.lineTo(X(5),Y(b2));g.moveTo(X(5),Y(a));g.lineTo(X(3),Y(b2));g.stroke()}
+  g.lineWidth=7;g.strokeRect(X(0)-10,Y(0)-10,X(8)-X(0)+20,Y(9)-Y(0)+20);
+  g.fillStyle='#5a2e10';g.font='bold '+Math.round(u*0.55)+'px "KaiTi","STKaiti","Kaiti SC",serif';g.textAlign='center';g.textBaseline='middle';
+  g.fillText('楚  河',X(2),Y(4.5));g.save();g.translate(X(6),Y(4.5));g.rotate(Math.PI);g.fillText('汉  界',0,0);g.restore();
+  g.lineWidth=2.5;const mark=(c,r)=>{const d=8,l=16;for(const sx of[-1,1])for(const sy of[-1,1]){if((c===0&&sx<0)||(c===8&&sx>0))continue;g.beginPath();g.moveTo(X(c)+sx*d,Y(r)+sy*(d+l));g.lineTo(X(c)+sx*d,Y(r)+sy*d);g.lineTo(X(c)+sx*(d+l),Y(r)+sy*d);g.stroke()}};
+  for(const c of[0,2,4,6,8]){mark(c,3);mark(c,6)}for(const c of[1,7]){mark(c,2);mark(c,7)}
+}});
+let flip=false;
+const wpos=(i)=>{const r=(i/9)|0,c=i%9;return flip?[(4-c)*S,(4.5-r)*S]:[(c-4)*S,(r-4.5)*S]};
+const markers=[],moveDots=[];
+const selRing=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.05,8,32),new THREE.MeshBasicMaterial({color:0x4dff88}));selRing.rotation.x=Math.PI/2;selRing.visible=false;kit.scene.add(selRing);
+const lastFrom=new THREE.Mesh(new THREE.RingGeometry(0.36,0.46,4),new THREE.MeshBasicMaterial({color:0x3aa0ff,transparent:true,opacity:0.8,side:THREE.DoubleSide}));lastFrom.rotation.set(-Math.PI/2,0,Math.PI/4);lastFrom.visible=false;kit.scene.add(lastFrom);
+const lastTo=lastFrom.clone();lastTo.material=lastFrom.material.clone();kit.scene.add(lastTo);
+const hintRing=new THREE.Mesh(new THREE.TorusGeometry(0.52,0.06,8,32),new THREE.MeshBasicMaterial({color:0xffd27a}));hintRing.rotation.x=Math.PI/2;hintRing.visible=false;kit.scene.add(hintRing);
+const dotGeo=new THREE.CylinderGeometry(0.13,0.13,0.04,16),dotMat=new THREE.MeshBasicMaterial({color:0x4dff88,transparent:true,opacity:0.85}),capMat=new THREE.MeshBasicMaterial({color:0xff5a4a,transparent:true,opacity:0.6});
+let meshes=new Array(90).fill(null);
+
+/* ================= 音效 ================= */
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function knock(hard){const a=ac();if(!a)return;const t=a.currentTime;const o=a.createOscillator(),g=a.createGain(),f=a.createBiquadFilter();o.type='triangle';o.frequency.setValueAtTime(hard?260:420,t);o.frequency.exponentialRampToValueAtTime(hard?90:180,t+0.12);f.type='lowpass';f.frequency.value=1800;g.gain.setValueAtTime(hard?0.5:0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.18);o.connect(f);f.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.2)}
+function bell(){const a=ac();if(!a)return;const t=a.currentTime;for(const[fq,v]of[[880,0.18],[1320,0.1]]){const o=a.createOscillator(),g=a.createGain();o.frequency.value=fq;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.8);o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+0.9)}}
+const TRACKS=['../music/board/oriental2.m4a','../music/board/kingdom.m4a'];
+GameMusic.setVolume(0.42);GameMusic.setEnabled(!!save.music);
+
+/* ================= 对局 ================= */
+let B,turn,hist,over,mode,level,me,sel=-1,busy=false,ply=0;
+function newGame(){
+  for(const m of meshes)if(m)kit.scene.remove(m);meshes=new Array(90).fill(null);
+  B=parse(START);turn='r';hist=[];over=false;busy=false;sel=-1;ply=0;mode=save.mode;level=save.level;me=mode==='ai'?save.side:'r';flip=mode==='ai'&&me==='b';
+  for(let i=0;i<90;i++)if(B[i])spawn(i,B[i]);
+  selRing.visible=lastFrom.visible=lastTo.visible=hintRing.visible=false;clearDots();$('over').hidden=true;
+  updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*2)],{fade:0.6});
+  if(mode==='ai'&&me==='b')setTimeout(aiTurn,600);
+}
+function spawn(i,p){const m=BoardKit.disc(NAME[p],isRed(p),0.43,0.24);const[x,z]=wpos(i);m.position.set(x,0.12,z);m.rotation.y=flip?-Math.PI/2:Math.PI/2;kit.scene.add(m);meshes[i]=m;return m}
+function clearDots(){for(const d of moveDots)kit.scene.remove(d);moveDots.length=0}
+function showDots(i){clearDots();for(const[f,t]of legal(B,turn)){if(f!==i)continue;const d=new THREE.Mesh(dotGeo,B[t]?capMat:dotMat);const[x,z]=wpos(t);d.position.set(x,B[t]?0.27:0.03,z);if(B[t])d.scale.set(3.6,1,3.6);kit.scene.add(d);moveDots.push(d)}}
+function select(i){sel=i;const[x,z]=wpos(i);selRing.position.set(x,0.05,z);selRing.visible=true;const m=meshes[i];kit.tween(0.12,k=>{m.position.y=0.12+k*0.35});showDots(i)}
+function deselect(){if(sel>=0&&meshes[sel]){const m=meshes[sel];kit.tween(0.1,k=>{m.position.y=0.47-k*0.35})}sel=-1;selRing.visible=false;clearDots()}
+function doMove(f,t,fromAI){
+  const p=B[f],cap=B[t];hist.push({f,t,p,cap,mesh:meshes[t]});
+  B[t]=p;B[f]=null;const m=meshes[f];meshes[f]=null;
+  const capMesh=meshes[t];meshes[t]=m;
+  const[x0,z0]=wpos(f),[x1,z1]=wpos(t);const y0=m.position.y;
+  if(capMesh){const side=isRed(cap)!==flip?1:-1;const n=hist.filter(h=>h.cap&&isRed(h.cap)===isRed(cap)).length;kit.tween(0.5,k=>{capMesh.position.set(lerp(x1,side*(BW/2+0.9),k),0.12+Math.sin(k*Math.PI)*1.2,lerp(z1,side*(-3.5+n*0.55),k))})}
+  kit.tween(0.32,k=>{const e=k<.5?2*k*k:1-Math.pow(-2*k+2,2)/2;m.position.set(lerp(x0,x1,e),lerp(y0,0.12,k)+Math.sin(k*Math.PI)*0.9,lerp(z0,z1,e))},()=>{knock(!!cap)});
+  lastFrom.position.set(x0,0.02,z0);lastTo.position.set(x1,0.02,z1);lastFrom.visible=lastTo.visible=true;hintRing.visible=false;
+  sel=-1;selRing.visible=false;clearDots();
+  turn=turn==='r'?'b':'r';ply++;
+  const ms=legal(B,turn);
+  if(!ms.length){over=true;setTimeout(()=>finish(turn==='r'?'b':'r'),600);updateStatus();return}
+  if(inCheck(B,turn)){setTimeout(()=>{toast('将军！');bell()},350)}
+  if(ply>=300){over=true;setTimeout(()=>finish(null),600)}
+  updateStatus();
+  if(mode==='ai'&&turn!==me&&!over)setTimeout(aiTurn,420);
+}
+const lerp=(a,b,t)=>a+(b-a)*t;
+function aiTurn(){if(over)return;busy=true;updateStatus();setTimeout(()=>{const m=bestMove(B.slice(),turn,level);busy=false;if(m)doMove(m[0],m[1],true)},60)}
+function finish(win){
+  let icon='🤝',title='和棋',sub='已走 300 步';
+  if(win){if(mode==='pvp'){icon='🏆';title=(win==='r'?'红方':'黑方')+'获胜！';sub='绝杀！'}
+    else if(win===me){icon='🏆';title='你赢了！';sub=['','简单','普通','困难'][level]+'难度 · '+Math.ceil(ply/2)+' 回合';save.w++;GameMusic.jingle('../music/board/win.m4a',0.8)}
+    else{icon='😅';title='电脑赢了';sub='再来一局，注意对方的车和马';save.l++}persist()}
+  $('oIcon').textContent=icon;$('oTitle').textContent=title;$('oSub').textContent=sub;$('over').hidden=false;updateStatus();
+}
+function updateStatus(){$('turnDot').className='dot '+(turn==='r'?'red':'black');
+  $('turnText').textContent=over?'对局结束':busy?'电脑思考中…':mode==='pvp'?(turn==='r'?'红方':'黑方')+'走棋':(turn===me?'轮到你（'+(me==='r'?'红':'黑')+'）':'电脑走棋');$('bUndo').disabled=!hist.length||busy}
+function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,1300)}
+
+/* ================= 输入 ================= */
+const cv=$('gl');let down=null;
+function sqAt(x,y){const p=kit.pick(x,y);if(!p)return -1;let c,r;if(flip){c=Math.round(4-p.x/S);r=Math.round(4.5-p.z/S)}else{c=Math.round(p.x/S+4);r=Math.round(p.z/S+4.5)}if(c<0||c>8||r<0||r>9)return -1;const[wx,wz]=wpos(r*9+c);if(Math.hypot(wx-p.x,wz-p.z)>0.55)return -1;return r*9+c}
+cv.addEventListener('pointerdown',e=>{ac();GameMusic.unlock();down={x:e.clientX,y:e.clientY}});
+cv.addEventListener('pointerup',e=>{if(!down)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>14||over||busy)return;if(mode==='ai'&&turn!==me)return;
+  const i=sqAt(e.clientX,e.clientY);if(i<0){deselect();return}
+  if(B[i]&&side(B[i])===turn){if(sel===i){deselect();return}deselect();select(i);knock(false);return}
+  if(sel>=0){const ok=legal(B,turn).some(m=>m[0]===sel&&m[1]===i);if(ok)doMove(sel,i);else{deselect()}}});
+$('bUndo').onclick=()=>{if(busy||!hist.length)return;
+  const n=mode==='ai'?(turn===me?2:1):1;
+  for(let k=0;k<n&&hist.length;k++){const h=hist.pop();B[h.f]=h.p;B[h.t]=h.cap;const m=meshes[h.t];meshes[h.f]=m;meshes[h.t]=h.mesh;const[x,z]=wpos(h.f);m.position.set(x,0.12,z);if(h.mesh){const[x2,z2]=wpos(h.t);h.mesh.position.set(x2,0.12,z2)}turn=turn==='r'?'b':'r';ply--}
+  over=false;$('over').hidden=true;deselect();lastFrom.visible=lastTo.visible=false;updateStatus()};
+$('bHint').onclick=()=>{if(over||busy)return;busy=true;updateStatus();setTimeout(()=>{const m=bestMove(B.slice(),turn,2);busy=false;updateStatus();if(!m)return;deselect();select(m[0]);const[x,z]=wpos(m[1]);hintRing.position.set(x,0.06,z);hintRing.visible=true;toast('试试这步')},50)};
+$('bView').onclick=()=>{save.view=kit.view==='3d'?'top':'3d';persist();kit.setView(save.view);$('bView').textContent=save.view==='3d'?'俯视':'3D'};$('bView').textContent=save.view==='3d'?'俯视':'3D';
+$('bMusic').onclick=()=>{save.music=save.music?0:1;persist();GameMusic.setEnabled(!!save.music);$('bMusic').textContent='音乐：'+(save.music?'开':'关')};$('bMusic').textContent='音乐：'+(save.music?'开':'关');
+$('bMenu').onclick=()=>openSetup();
+function seg(id,key,cast){const el=$(id);for(const b of el.children){b.classList.toggle('sel',String(save[key])===b.dataset.v);b.onclick=()=>{save[key]=cast?cast(b.dataset.v):b.dataset.v;persist();openSetup()}}}
+function openSetup(){$('setup').hidden=false;$('over').hidden=true;seg('segMode','mode');seg('segLevel','level',Number);seg('segSide','side');$('optLevel').classList.toggle('hide',save.mode!=='ai');$('optSide').classList.toggle('hide',save.mode!=='ai');$('rec').textContent='人机战绩：'+save.w+' 胜 '+save.l+' 负'}
+$('bStart').onclick=()=>{ac();$('setup').hidden=true;newGame()};$('bAgain').onclick=()=>newGame();$('bSetup').onclick=()=>openSetup();$('bReview').onclick=()=>{$('over').hidden=true};
+B=parse(START);turn='r';hist=[];over=true;mode=save.mode;level=save.level;me=save.side;
+for(let i=0;i<90;i++)if(B[i])spawn(i,B[i]);
+GameMusic.play(TRACKS[0]);openSetup();
+(function loop(){kit.render();requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

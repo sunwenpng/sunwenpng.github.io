@@ -98,6 +98,7 @@ h2{margin:0 0 10px;text-align:center;font-size:26px}
 </div>
 
 <script src="core.js"></script>
+<script src="../lib/music.js"></script>
 <script>
 'use strict';
 const K=DangoCore,PH=K.PH;
@@ -127,6 +128,7 @@ function initAudio(){
   noiseBuf=AC.createBuffer(1,AC.sampleRate*0.5,AC.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
 }
 function applyAudio(){
+  GameMusic.setEnabled(!!save.music);
   if(musicBus)musicBus.gain.value=save.music?0.5:0;if(sfxBus)sfxBus.gain.value=save.sfx?0.6:0;
   for(const id of ['btnMusic','btnMusic2'])$(id).textContent='音乐：'+(save.music?'开':'关');
   for(const id of ['btnSfx','btnSfx2'])$(id).textContent='音效：'+(save.sfx?'开':'关');
@@ -162,8 +164,14 @@ function makeSong(lv){
   const lead=[];for(let i=0;i<32;i++){lead.push(r()<0.62?SCALE[Math.floor(r()*5)]+12*(1+Math.floor(r()*2)):null)}
   return{root,prog,lead,bpm:lv.bpm};
 }
-function startMusic(lv,offset){
-  stopMusic();if(!AC)return;
+/* 背景音乐：OpenGameArt 上的 CC0 曲目（见 music/CREDITS.md） */
+const LV_TRACK={1:['l1',140],2:['l2',90],3:['l3',103.5],4:['l4',169],5:['l5',161.5],6:['l6',140],7:['l7',109],8:['l8',165],daily:['daily',172.5]};
+let curBpm=120;GameMusic.setVolume(0.6);GameMusic.setEnabled(!!save.music);
+function startMusic(lv,offset){const t=LV_TRACK[lv.id]||LV_TRACK[1];curBpm=t[1];GameMusic.play('music/'+t[0]+'.m4a',{restart:true,at:offset||0})}
+function stopMusic(){GameMusic.pause()}
+function beatPhase(){if(!GameMusic.playing)return 0;const b=GameMusic.time*curBpm/60;return b-Math.floor(b)}
+function startSynthMusic(lv,offset){
+  stopSynthMusic();if(!AC)return;
   const g=AC.createGain();g.gain.value=1;g.connect(musicBus);
   const song=makeSong(lv);const spb=60/song.bpm/4;               // 每个 16 分音符
   const t0=AC.currentTime+0.03-offset;
@@ -185,8 +193,8 @@ function musicTick(){
     m.step++;
   }
 }
-function stopMusic(){if(!mus)return;clearInterval(mus.timer);const g=mus.g;try{g.gain.setTargetAtTime(0,AC.currentTime,0.03);setTimeout(()=>g.disconnect(),400)}catch(e){}mus=null}
-function beatPhase(){if(!mus||!AC)return 0;const b=(AC.currentTime-mus.t0)/(mus.spb*4);return b-Math.floor(b)}
+function stopSynthMusic(){if(!mus)return;clearInterval(mus.timer);const g=mus.g;try{g.gain.setTargetAtTime(0,AC.currentTime,0.03);setTimeout(()=>g.disconnect(),400)}catch(e){}mus=null}
+function synthBeatPhase(){if(!mus||!AC)return 0;const b=(AC.currentTime-mus.t0)/(mus.spb*4);return b-Math.floor(b)}
 
 /* ---------- 状态 ---------- */
 let mode='menu';      // menu | play | dead | pause | win
@@ -226,7 +234,7 @@ function die(){
 }
 function progress(){return Math.min(100,Math.floor(st.x/cur.L.end*100))}
 function winLevel(){
-  mode='win';stopMusic();sfx('win');$('btnPause').classList.add('hide');
+  mode='win';GameMusic.stop();GameMusic.jingle('music/win.m4a');sfx('win');$('btnPause').classList.add('hide');
   const got=bits(st.coins);let firstClear=false;
   if(!practice){
     if(cur.daily){const d=save.daily;if(d.key!==todayKey()){d.key=todayKey();d.best=0}firstClear=!d.done;d.done=true;d.best=100}
@@ -279,7 +287,7 @@ $('btnMusic').onclick=toggleMusic;$('btnMusic2').onclick=toggleMusic;$('btnSfx')
 /* ---------- 菜单 ---------- */
 function showScreen(id){for(const s of ['menu','pause','win'])$(s).hidden=s!==id}
 function openMenu(){
-  mode='menu';stopMusic();cur=null;st=null;showScreen('menu');$('btnPause').classList.add('hide');applyAudio();
+  mode='menu';GameMusic.play('music/menu.m4a',{fade:0.5});cur=null;st=null;showScreen('menu');$('btnPause').classList.add('hide');applyAudio();
   const list=$('levelList');list.innerHTML='';let total=0;
   const d=save.daily.key===todayKey()?save.daily:{best:0,done:false};
   const db=document.createElement('button');db.className='lv daily';db.style.setProperty('--c','#ffd166');

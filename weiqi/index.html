@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2a170c">
+<title>围棋</title>
+<meta name="description" content="3D 围棋：9 路 / 13 路，人机对战（蒙特卡洛 AI），双人同屏，自动数子。">
+<style>
+:root{--bg:#1c0f08;--panel:rgba(40,22,12,.82);--line:rgba(255,220,170,.25);--fg:#fff4e2;--muted:#e6cfae;--gold:#ffd27a;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font-family:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.bar{position:fixed;left:0;right:0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 max(10px,var(--sr)) 0 max(10px,var(--sl));z-index:5;pointer-events:none}
+.bar>*{pointer-events:auto}
+#topBar{top:calc(var(--st) + 8px);justify-content:space-between;align-items:center}
+#botBar{bottom:calc(var(--sb) + 10px)}
+.b{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:9px 13px;font-size:15px;font-weight:700;min-height:42px;backdrop-filter:blur(4px)}
+.b.primary{background:linear-gradient(180deg,#f7c66b,#d18a2c);color:#3a1d00;border-color:#ffe0a0}
+.b:disabled{opacity:.4}
+@media (hover:hover){.b:not(:disabled):hover{filter:brightness(1.15)}}
+.status{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:8px 14px;font-size:15px;font-weight:700;backdrop-filter:blur(4px)}
+.status small{color:var(--muted);font-weight:600}
+.dot{width:18px;height:18px;border-radius:50%;box-shadow:inset -3px -3px 4px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.5)}
+.dot.black{background:radial-gradient(circle at 35% 30%,#666,#111)}.dot.white{background:radial-gradient(circle at 35% 30%,#fff,#cfcfc6)}
+.home{color:var(--muted);text-decoration:none;font-size:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px}
+.screen{position:fixed;inset:0;display:flex;padding:calc(var(--st) + 14px) max(16px,var(--sr)) calc(var(--sb) + 14px) max(16px,var(--sl));background:rgba(20,10,4,.72);backdrop-filter:blur(4px);z-index:10;overflow:auto}
+.screen[hidden]{display:none}
+.box{margin:auto;width:100%;max-width:460px;background:linear-gradient(180deg,#4a2a16,#2c170b);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{margin:0 0 4px;text-align:center;font-size:40px;letter-spacing:.2em;font-family:"KaiTi","STKaiti","Kaiti SC",serif;color:#ffe2a8;text-shadow:0 3px 0 #6a3a10}
+h2{margin:0 0 10px;text-align:center;font-size:24px}
+.sub{text-align:center;color:var(--muted);font-size:13px;margin:4px 0 14px;line-height:1.6}
+.opt{margin:12px 0}.opt>span{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.seg{display:flex;gap:6px}.seg button{flex:1;border:1px solid var(--line);background:rgba(0,0,0,.25);border-radius:12px;padding:10px 6px;font-size:15px;font-weight:700}
+.seg button.sel{background:linear-gradient(180deg,#f7c66b,#d18a2c);color:#3a1d00}
+.row{display:flex;gap:10px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+.rec{text-align:center;color:var(--muted);font-size:13px;margin-top:12px}
+.big{font-size:64px;text-align:center;margin:0}
+table{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0}td{padding:6px;border-bottom:1px solid var(--line)}td.r{text-align:right;font-weight:800}
+.hide{display:none!important}
+#toast{position:fixed;left:50%;top:20%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 20px;font-weight:800;z-index:8;opacity:0;transition:opacity .25s;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="bar" id="topBar">
+  <a class="home" href="../">← 大厅</a>
+  <div class="status"><span class="dot black" id="turnDot"></span><span id="turnText">黑棋先行</span><small id="capText"></small></div>
+  <button class="b" id="bMenu">菜单</button>
+</div>
+<div class="bar" id="botBar">
+  <button class="b" id="bPass">停一手</button>
+  <button class="b" id="bUndo">悔棋</button>
+  <button class="b" id="bResign">认输</button>
+  <button class="b" id="bView">俯视</button>
+  <button class="b" id="bMusic">音乐</button>
+</div>
+<div id="toast"></div>
+
+<div class="screen" id="setup">
+  <div class="box">
+    <h1>围棋</h1>
+    <p class="sub">黑白轮流落子，把对方没有“气”的棋子提掉。双方都停一手后自动数子，地盘（棋子 + 围住的空）多者胜，白方贴 7.5 目。</p>
+    <div class="opt"><span>棋盘</span><div class="seg" id="segSize"><button data-v="9" class="sel">9 路（入门）</button><button data-v="13">13 路</button><button data-v="19">19 路</button></div></div>
+    <div class="opt"><span>对手</span><div class="seg" id="segMode"><button data-v="ai" class="sel">电脑</button><button data-v="pvp">双人同屏</button></div></div>
+    <div class="opt" id="optLevel"><span>难度</span><div class="seg" id="segLevel"><button data-v="1">入门</button><button data-v="2" class="sel">普通</button><button data-v="3">较强</button></div></div>
+    <div class="opt" id="optSide"><span>我执</span><div class="seg" id="segSide"><button data-v="1" class="sel">黑棋（先手）</button><button data-v="2">白棋（后手）</button></div></div>
+    <div class="row"><button class="b primary" id="bStart" style="min-width:160px">开始对局</button></div>
+    <div class="rec" id="rec"></div>
+  </div>
+</div>
+
+<div class="screen" id="over" hidden>
+  <div class="box">
+    <p class="big" id="oIcon">🏆</p>
+    <h2 id="oTitle">你赢了！</h2>
+    <table id="oTable"></table>
+    <p class="sub" id="oSub"></p>
+    <div class="row"><button class="b primary" id="bAgain">再来一局</button><button class="b" id="bReview">看棋盘</button><button class="b" id="bSetup">换设置</button></div>
+  </div>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/music.js"></script>
+<script src="../lib/boardkit.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const SKEY='weiqi-v1';
+let save=(()=>{try{return Object.assign({size:9,mode:'ai',level:2,side:1,music:1,w:0,l:0,view:'3d'},JSON.parse(localStorage.getItem(SKEY))||{})}catch(e){return{size:9,mode:'ai',level:2,side:1,music:1,w:0,l:0,view:'3d'}}})();
+const persist=()=>{try{localStorage.setItem(SKEY,JSON.stringify(save))}catch(e){}};
+const KOMI=7.5;
+
+/* ================= 围棋引擎 ================= */
+class Go{
+  constructor(n){this.n=n;this.W=n+2;this.b=new Int8Array(this.W*this.W);for(let y=0;y<this.W;y++)for(let x=0;x<this.W;x++)if(x===0||y===0||x===this.W-1||y===this.W-1)this.b[y*this.W+x]=3;
+    this.ko=-1;this.mark=new Int32Array(this.W*this.W);this.stamp=1;this.caps=[0,0,0];this.D=[1,-1,this.W,-this.W];this.stack=new Int32Array(this.W*this.W);this.group=new Int32Array(this.W*this.W)}
+  clone(){const g=Object.create(Go.prototype);g.n=this.n;g.W=this.W;g.b=this.b.slice();g.ko=this.ko;g.mark=new Int32Array(this.W*this.W);g.stamp=1;g.caps=this.caps.slice();g.D=this.D;g.stack=new Int32Array(this.W*this.W);g.group=new Int32Array(this.W*this.W);return g}
+  idx(x,y){return(y+1)*this.W+x+1}
+  xy(p){return[p%this.W-1,((p/this.W)|0)-1]}
+  // 洪水填充：返回该块棋子数，并把棋子放进 this.group；libs 返回气数（最多数到 lim）
+  libs(p,lim){const b=this.b,c=b[p],st=++this.stamp,mk=this.mark,S=this.stack,D=this.D;let sp=0,n=0,l=0;S[sp++]=p;mk[p]=st;
+    while(sp){const q=S[--sp];this.group[n++]=q;for(let k=0;k<4;k++){const r=q+D[k];if(mk[r]===st)continue;const v=b[r];if(v===0){mk[r]=st;l++;if(l>=lim){this.gn=n;return l}}else if(v===c){mk[r]=st;S[sp++]=r}}}
+    this.gn=n;return l}
+  play(p,c){
+    const b=this.b;if(p<0){this.ko=-1;return true}
+    if(b[p]!==0||p===this.ko)return false;
+    b[p]=c;const o=3-c,D=this.D;let capd=0,capAt=-1;
+    for(let k=0;k<4;k++){const q=p+D[k];if(b[q]===o&&this.libs(q,1)===0){const n=this.gn;for(let i=0;i<n;i++)b[this.group[i]]=0;capd+=n;capAt=q}}
+    if(!capd&&this.libs(p,1)===0){b[p]=0;return false}
+    this.caps[c]+=capd;
+    this.ko=-1;if(capd===1){this.libs(p,2);if(this.gn===1&&this.libs(p,2)===1)this.ko=capAt}
+    return true}
+  isEye(p,c){const b=this.b,D=this.D;for(let k=0;k<4;k++){const v=b[p+D[k]];if(v!==c&&v!==3)return false}
+    let bad=0,edge=false;for(const d of[this.W+1,this.W-1,-this.W+1,-this.W-1]){const v=b[p+d];if(v===3)edge=true;else if(v===3-c)bad++}
+    return edge?bad===0:bad<2}
+  empties(){const out=[];for(let y=0;y<this.n;y++)for(let x=0;x<this.n;x++){const p=this.idx(x,y);if(this.b[p]===0)out.push(p)}return out}
+  // 数子（区域计分）：棋子 + 只被一方包围的空
+  score(dead){const b=this.b.slice();if(dead)for(const p of dead)b[p]=0;const own=new Int8Array(b.length),seen=new Uint8Array(b.length);let bl=0,wh=0;
+    for(let y=0;y<this.n;y++)for(let x=0;x<this.n;x++){const p=this.idx(x,y);if(b[p]===1){bl++;own[p]=1}else if(b[p]===2){wh++;own[p]=2}}
+    let bt=0,wt=0;
+    for(let y=0;y<this.n;y++)for(let x=0;x<this.n;x++){const p=this.idx(x,y);if(b[p]!==0||seen[p])continue;
+      const reg=[p],q=[p];seen[p]=1;let tb=false,tw=false;while(q.length){const r=q.pop();for(const d of this.D){const s=r+d,v=b[s];if(v===0&&!seen[s]){seen[s]=1;q.push(s);reg.push(s)}else if(v===1)tb=true;else if(v===2)tw=true}}
+      if(tb&&!tw){bt+=reg.length;for(const r of reg)own[r]=1}else if(tw&&!tb){wt+=reg.length;for(const r of reg)own[r]=2}}
+    return{bl,wh,bt,wt,black:bl+bt,white:wh+wt+KOMI,own}}
+}
+/* ---------- 随机对局（蒙特卡洛） ---------- */
+function playout(g,c,maxMoves,amaf){
+  let passes=0,moves=0;const E=g.empties();
+  while(passes<2&&moves<maxMoves){
+    let played=false;
+    // 小策略：先看能不能提子
+    for(let tries=E.length;tries>0;tries--){const i=(Math.random()*E.length)|0;const p=E[i];
+      if(g.b[p]!==0){E[i]=E[E.length-1];E.pop();continue}
+      if(g.isEye(p,c))continue;
+      if(g.play(p,c)){played=true;E[i]=E[E.length-1];E.pop();if(amaf&&amaf[p]===0)amaf[p]=c;break}}
+    if(!played){passes++;g.ko=-1}else{passes=0;if(E.length<g.n*g.n*0.15){E.length=0;for(const p of g.empties())E.push(p)}}
+    c=3-c;moves++}
+  return g.score()}
+function candMoves(g,c){const out=[];for(const p of g.empties()){if(g.isEye(p,c))continue;const t=g.clone();if(t.play(p,c))out.push(p)}return out}
+function think(g,c,lvl,budgetMs){
+  const cands=candMoves(g,c);if(!cands.length)return{move:-1,own:null,rate:0};
+  const stats=cands.map(p=>({p,w:0,n:0,prior:0}));
+  // 先验：能提子 / 能救被叫吃的棋 / 自紧气扣分
+  for(const s of stats){const t=g.clone();const before=t.caps[c];t.play(s.p,c);if(t.caps[c]>before)s.prior+=2;t.libs(s.p,3);if(t.gn>1&&t.libs(s.p,3)===1)s.prior-=2;
+    for(const d of g.D){const q=s.p+d;if(g.b[q]===c&&g.libs(q,2)===1){s.prior+=1.5}if(g.b[q]===3-c&&g.libs(q,3)===2)s.prior+=0.5}
+    const[x,y]=g.xy(s.p),n=g.n;if(x===0||y===0||x===n-1||y===n-1)s.prior-=0.6}
+  const t0=performance.now();let total=0;const own=new Float32Array(g.b.length);
+  const maxMoves=g.n*g.n*3;
+  while(performance.now()-t0<budgetMs){
+    for(let k=0;k<16;k++){
+      let best=null,bv=-1;const ln=Math.log(total+1);
+      for(const s of stats){const v=s.n?s.w/s.n+Math.sqrt(1.6*ln/s.n)+s.prior*0.12/(1+s.n*0.05):100+s.prior+Math.random();if(v>bv){bv=v;best=s}}
+      const t=g.clone();t.play(best.p,c);const r=playout(t,3-c,maxMoves);
+      const win=(c===1?r.black>r.white:r.white>r.black)?1:0;best.w+=win;best.n++;total++;
+      for(let i=0;i<own.length;i++)if(r.own[i]===1)own[i]+=1;else if(r.own[i]===2)own[i]-=1;
+    }
+  }
+  for(let i=0;i<own.length;i++)own[i]/=Math.max(1,total);
+  stats.sort((a,b)=>(b.n-a.n)||(b.w-a.w));
+  let pick=stats[0];
+  if(lvl===1&&stats.length>3&&Math.random()<0.35)pick=stats[1+Math.floor(Math.random()*Math.min(4,stats.length-1))];
+  return{move:pick.p,rate:pick.w/Math.max(1,pick.n),own,total};
+}
+function deadStones(g){
+  // 用随机对局估计归属：棋子所在点大部分时间归对方 → 判为死子
+  const own=new Float32Array(g.b.length);const N=g.n<=9?240:g.n<=13?160:90;
+  for(let k=0;k<N;k++){const t=g.clone();const r=playout(t,1,g.n*g.n*3);for(let i=0;i<own.length;i++)if(r.own[i]===1)own[i]++;else if(r.own[i]===2)own[i]--}
+  const dead=[];for(let y=0;y<g.n;y++)for(let x=0;x<g.n;x++){const p=g.idx(x,y),v=g.b[p],o=own[p]/N;if(v===1&&o<-0.4)dead.push(p);if(v===2&&o>0.4)dead.push(p)}
+  return dead;
+}
+
+/* ================= 3D ================= */
+const BS=10;let kit=null,N=save.size,STEP=1,OFF=0;
+function drawTop(g,w,h){
+  BoardKit.wood(g,w,h,'#e4b868','#b5813a',13);
+  const s=w/BS,st=STEP*s,o=w/2-(N-1)/2*st;
+  g.strokeStyle='#2e1a08';g.lineWidth=N>13?2:3;
+  for(let i=0;i<N;i++){g.beginPath();g.moveTo(o+i*st,o);g.lineTo(o+i*st,o+(N-1)*st);g.stroke();g.beginPath();g.moveTo(o,o+i*st);g.lineTo(o+(N-1)*st,o+i*st);g.stroke()}
+  g.lineWidth=5;g.strokeRect(o,o,(N-1)*st,(N-1)*st);
+  const stars=N===9?[[2,2],[6,2],[2,6],[6,6],[4,4]]:N===13?[[3,3],[9,3],[3,9],[9,9],[6,6]]:[[3,3],[9,3],[15,3],[3,9],[9,9],[15,9],[3,15],[9,15],[15,15]];
+  g.fillStyle='#2e1a08';for(const[a,b]of stars){g.beginPath();g.arc(o+a*st,o+b*st,N>13?6:9,0,Math.PI*2);g.fill()}
+}
+function setupBoard(){
+  N=save.size;STEP=BS*0.9/(N-1);OFF=-BS*0.9/2;
+  if(!kit)kit=BoardKit.create($('gl'),{size:BS,thick:1.0,feet:true,view:save.view,drawTop});else kit.redrawTop();
+}
+const pos=(x,y)=>[OFF+x*STEP,OFF+y*STEP];
+let stoneMesh={},lastMark,ghost,terrMarks=[];
+
+/* ================= 音效 ================= */
+let AC=null;function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function click(){const a=ac();if(!a)return;const t=a.currentTime;const bf=a.createBuffer(1,a.sampleRate*0.05,a.sampleRate),d=bf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,7);const s=a.createBufferSource();s.buffer=bf;const f=a.createBiquadFilter();f.type='bandpass';f.frequency.value=2600;const g=a.createGain();g.gain.value=1;s.connect(f);f.connect(g);g.connect(a.destination);s.start(t)}
+const TRACKS=['../music/board/pentatonic.m4a','../music/board/oriental.m4a'];
+GameMusic.setVolume(0.42);GameMusic.setEnabled(!!save.music);
+
+/* ================= 对局 ================= */
+let game,turn,hist,over,mode,level,me,busy=false,passes=0,moveNo=0;
+function syncStones(animP){
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const p=game.idx(x,y),v=game.b[p];const m=stoneMesh[p];
+    if(v&&!m){const s=BoardKit.stone(v===1?'black':'white',STEP*0.47);const[wx,wz]=pos(x,y);s.position.set(wx,STEP*0.2,wz);kit.scene.add(s);stoneMesh[p]={mesh:s,c:v};
+      if(p===animP){s.position.y=1.4;kit.tween(0.22,k=>{s.position.y=STEP*0.2+(1-k)*1.2},()=>click())}}
+    else if(!v&&m){const mm=m.mesh;kit.tween(0.3,k=>{mm.position.y=STEP*0.2+k*0.8;mm.scale.setScalar(STEP*0.47*(1-k))},()=>kit.scene.remove(mm));delete stoneMesh[p]}
+    else if(v&&m&&m.c!==v){kit.scene.remove(m.mesh);delete stoneMesh[p];syncStones()}}
+}
+function clearAll(){for(const k in stoneMesh)kit.scene.remove(stoneMesh[k].mesh);stoneMesh={};for(const m of terrMarks)kit.scene.remove(m);terrMarks=[]}
+function newGame(){
+  setupBoard();clearAll();
+  if(!lastMark){lastMark=new THREE.Mesh(new THREE.TorusGeometry(1,0.18,8,24),new THREE.MeshBasicMaterial({color:0xff3b30}));lastMark.rotation.x=Math.PI/2;kit.scene.add(lastMark);
+    ghost=BoardKit.stone('black',1);ghost.material.transparent=true;ghost.material.opacity=0.45;kit.scene.add(ghost)}
+  lastMark.scale.setScalar(STEP*0.16);lastMark.visible=false;ghost.scale.set(STEP*0.47,STEP*0.47*0.42,STEP*0.47);ghost.visible=false;
+  game=new Go(N);turn=1;hist=[];over=false;busy=false;passes=0;moveNo=0;mode=save.mode;level=save.level;me=mode==='ai'?save.side:0;
+  $('over').hidden=true;updateStatus();GameMusic.jingle('../music/board/start.m4a',0.6);GameMusic.play(TRACKS[Math.floor(Math.random()*2)],{fade:0.6});
+  if(mode==='ai'&&me===2)setTimeout(aiTurn,500);
+}
+function doPlay(p){
+  const before=game.clone();
+  if(p>=0&&!game.play(p,turn)){toast(p===game.ko?'打劫：这里暂时不能立刻提回':'这里不能下（没有气）');return false}
+  if(p<0){game.ko=-1}
+  hist.push({g:before,turn,passes});
+  if(p<0){passes++;toast((turn===1?'黑棋':'白棋')+'停一手')}else{passes=0;moveNo++;const[x,y]=game.xy(p);const[wx,wz]=pos(x,y);lastMark.position.set(wx,STEP*0.42,wz);lastMark.visible=true}
+  syncStones(p);turn=3-turn;updateStatus();
+  if(passes>=2){endGame();return true}
+  if(mode==='ai'&&turn!==me)setTimeout(aiTurn,250);
+  return true}
+function aiTurn(){if(over)return;busy=true;updateStatus();
+  setTimeout(()=>{const budget=(N===9?[0,600,1400,2600]:N===13?[0,900,1800,3000]:[0,1200,2200,3500])[level];
+    const r=think(game,turn,level,budget);busy=false;
+    // 对手已停手且局面已定 → 跟着停；胜率太低 → 认输
+    if(r.move<0||(passes>=1&&settled(r.own))){doPlay(-1);return}
+    if(r.rate<0.04&&moveNo>N*N*0.5){over=true;finish({resign:turn});return}
+    doPlay(r.move)},50)}
+function settled(own){if(!own)return true;let open=0;for(const p of game.empties()){if(Math.abs(own[p])<0.7)open++}return open<=1}
+function endGame(){over=true;busy=true;updateStatus();toast('双方停手，正在数子…');setTimeout(()=>{const dead=deadStones(game);const sc=game.score(dead);busy=false;
+  // 标出地盘
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const p=game.idx(x,y);const o=sc.own[p];if(!o)continue;if(game.b[p]&&!dead.includes(p))continue;const[wx,wz]=pos(x,y);const m=new THREE.Mesh(new THREE.BoxGeometry(STEP*0.3,0.05,STEP*0.3),new THREE.MeshPhongMaterial({color:o===1?0x111111:0xf4f4f0}));m.position.set(wx,game.b[p]?STEP*0.45:0.03,wz);kit.scene.add(m);terrMarks.push(m)}
+  for(const p of dead){const s=stoneMesh[p];if(s){s.mesh.material=s.mesh.material.clone();s.mesh.material.transparent=true;s.mesh.material.opacity=0.45}}
+  finish({score:sc,dead:dead.length})},80)}
+function finish(r){
+  let icon='🏆',title,winner;
+  if(r.resign){winner=3-r.resign;title=(winner===1?'黑棋':'白棋')+'中盘胜（对方认输）'}
+  else{const s=r.score;winner=s.black>s.white?1:2;const diff=Math.abs(s.black-s.white);title=(winner===1?'黑棋':'白棋')+'胜 '+diff+' 子';
+    $('oTable').innerHTML='<tr><td>黑棋：棋子 '+s.bl+' + 地 '+s.bt+'</td><td class="r">'+s.black+'</td></tr><tr><td>白棋：棋子 '+s.wh+' + 地 '+s.wt+' + 贴目 '+KOMI+'</td><td class="r">'+s.white+'</td></tr>';
+    $('oSub').textContent=r.dead?'已自动判定 '+r.dead+' 颗死子（半透明显示）':''}
+  if(r.resign)$('oTable').innerHTML='';
+  if(mode==='ai'){if(winner===me){title='你赢了！'+title;icon='🏆';save.w++;GameMusic.jingle('../music/board/win.m4a',0.8)}else{title='电脑赢了：'+title;icon='😅';save.l++}persist()}
+  $('oIcon').textContent=icon;$('oTitle').textContent=title;$('over').hidden=false;updateStatus()}
+function updateStatus(){$('turnDot').className='dot '+(turn===1?'black':'white');
+  $('turnText').textContent=over?(busy?'数子中…':'对局结束'):busy?'电脑思考中…':mode==='pvp'?(turn===1?'黑棋':'白棋')+'落子':(turn===me?'轮到你':'电脑落子');
+  $('capText').textContent='提子 黑'+game.caps[1]+' 白'+game.caps[2];
+  $('bUndo').disabled=!hist.length||busy;$('bPass').disabled=over||busy||(mode==='ai'&&turn!==me);$('bResign').disabled=over||busy;
+  if(ghost)ghost.material.color.set(turn===1?0x151515:0xf2f0e8)}
+function toast(t){const e=$('toast');e.textContent=t;e.style.opacity=1;clearTimeout(e._t);e._t=setTimeout(()=>e.style.opacity=0,1500)}
+
+/* ================= 输入 ================= */
+const cv=$('gl');let down=null;
+function cellAt(cx,cy){const p=kit.pick(cx,cy);if(!p)return -1;const x=Math.round((p.x-OFF)/STEP),y=Math.round((p.z-OFF)/STEP);if(x<0||y<0||x>=N||y>=N)return -1;const[wx,wz]=pos(x,y);if(Math.hypot(wx-p.x,wz-p.z)>STEP*0.55)return -1;return game.idx(x,y)}
+cv.addEventListener('pointerdown',e=>{ac();GameMusic.unlock();down={x:e.clientX,y:e.clientY}});
+cv.addEventListener('pointermove',e=>{if(e.pointerType!=='mouse'||!game||!ghost)return;const p=cellAt(e.clientX,e.clientY);if(p>=0&&!over&&!busy&&game.b[p]===0&&(mode==='pvp'||turn===me)){const[x,y]=game.xy(p);const[wx,wz]=pos(x,y);ghost.position.set(wx,STEP*0.2,wz);ghost.visible=true}else ghost.visible=false});
+cv.addEventListener('pointerup',e=>{if(!down)return;const mv=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(mv>14||over||busy)return;if(mode==='ai'&&turn!==me)return;const p=cellAt(e.clientX,e.clientY);if(p<0||game.b[p])return;ghost.visible=false;doPlay(p)});
+$('bPass').onclick=()=>{if(over||busy)return;doPlay(-1)};
+$('bResign').onclick=()=>{if(over||busy)return;over=true;finish({resign:mode==='ai'?me:turn})};
+$('bUndo').onclick=()=>{if(busy||!hist.length)return;const n=mode==='ai'?(turn===me?2:1):1;let h;for(let k=0;k<n&&hist.length;k++)h=hist.pop();game=h.g;turn=h.turn;passes=h.passes;over=false;$('over').hidden=true;for(const m of terrMarks)kit.scene.remove(m);terrMarks=[];clearAll();syncStones();lastMark.visible=false;updateStatus()};
+$('bView').onclick=()=>{save.view=kit.view==='3d'?'top':'3d';persist();kit.setView(save.view);$('bView').textContent=save.view==='3d'?'俯视':'3D'};$('bView').textContent=save.view==='3d'?'俯视':'3D';
+$('bMusic').onclick=()=>{save.music=save.music?0:1;persist();GameMusic.setEnabled(!!save.music);$('bMusic').textContent='音乐：'+(save.music?'开':'关')};$('bMusic').textContent='音乐：'+(save.music?'开':'关');
+$('bMenu').onclick=()=>openSetup();
+function seg(id,key,cast){const el=$(id);for(const b of el.children){b.classList.toggle('sel',String(save[key])===b.dataset.v);b.onclick=()=>{save[key]=cast?cast(b.dataset.v):b.dataset.v;persist();openSetup()}}}
+function openSetup(){$('setup').hidden=false;$('over').hidden=true;seg('segSize','size',Number);seg('segMode','mode');seg('segLevel','level',Number);seg('segSide','side',Number);$('optLevel').classList.toggle('hide',save.mode!=='ai');$('optSide').classList.toggle('hide',save.mode!=='ai');$('rec').textContent='人机战绩：'+save.w+' 胜 '+save.l+' 负'+(save.size===19&&save.mode==='ai'?' · 19 路电脑较弱，推荐双人':'')}
+$('bStart').onclick=()=>{ac();$('setup').hidden=true;newGame()};$('bAgain').onclick=()=>newGame();$('bSetup').onclick=()=>openSetup();$('bReview').onclick=()=>{$('over').hidden=true};
+setupBoard();game=new Go(N);turn=1;hist=[];over=true;mode=save.mode;me=save.side;level=save.level;updateStatus();
+GameMusic.play(TRACKS[0]);openSetup();
+(function loop(){kit.render();requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>

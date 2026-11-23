@@ -57,6 +57,10 @@ h2{margin:0 0 12px;font-size:24px;text-align:center}
 .card .new{font-size:11px;color:#06101e;background:var(--gold);border-radius:6px;padding:1px 6px;margin-left:6px}
 .card p{margin:3px 0 0;font-size:13px;color:var(--muted);line-height:1.4}
 .card.curse{border-color:rgba(179,136,255,.6);background:linear-gradient(135deg,#1e1435,#141a30)}
+.card.evo{border:2px solid #ffd166;background:linear-gradient(135deg,#3a2a08,#1a1430 60%,#2a1040);box-shadow:0 0 22px rgba(255,209,102,.45);animation:pop .25s both,evoGlow 1.2s ease-in-out infinite alternate}
+.card.evo b{color:#ffd166}
+@keyframes evoGlow{to{box-shadow:0 0 34px rgba(255,209,102,.8)}}
+.evoRow{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:13px}.evoRow .ic{flex:0 0 36px;height:36px;border-radius:10px;display:grid;place-items:center;font-weight:900;color:#06101e}.evoRow small{display:block;color:var(--muted);font-size:12px}
 .card.curse b{color:var(--purple)}
 @media (hover:hover){.card:hover,.char:hover,.btn:hover{filter:brightness(1.15)}}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0 16px}
@@ -103,6 +107,7 @@ a.back{color:var(--muted);font-size:13px;text-decoration:none;display:block;text
     <div class="row">
       <button class="btn primary" id="btnStart" style="min-width:180px">开始</button>
       <button class="btn" id="btnShop">强化</button>
+      <button class="btn" id="btnEvo">进化图鉴</button>
     </div>
     <div class="best" id="bestLine"></div>
     <div class="keys">手机：按住屏幕任意处拖动移动，右下角冲刺 / 超载<br>电脑：WASD / 方向键移动，空格冲刺，E 超载，P 暂停，升级时按 T 全部拿走</div>
@@ -118,6 +123,15 @@ a.back{color:var(--muted);font-size:13px;text-decoration:none;display:block;text
     <p class="sub">金币 <span class="coins" id="shopCoins">0</span> · 每局结算获得金币</p>
     <div class="shop" id="shopList"></div>
     <div class="row"><button class="btn" id="btnShopBack">返回</button></div>
+  </div>
+</div>
+
+<div class="screen" id="evoScreen" hidden>
+  <div class="box">
+    <h2>超级进化图鉴</h2>
+    <p class="sub">武器升到 Lv5，并且拥有对应的被动道具，升级时就会出现金色的「超级进化」卡。<br>打精英怪掉的宝箱也会优先给你进化。</p>
+    <div class="shop" id="evoList"></div>
+    <div class="row"><button class="btn" id="btnEvoBack">返回</button></div>
   </div>
 </div>
 
@@ -221,6 +235,16 @@ const WEAPONS={
   missile:{name:'追踪弹',icon:'导',color:'#ff5cc8',desc:['发射追踪导弹，命中后爆炸','导弹 +1','爆炸范围 +30%','导弹 +1，伤害 +30%','冷却 -30%，导弹 +1']},
   mines:{name:'光雷',icon:'爆',color:'#80ed99',desc:['在脚下布置感应光雷','爆炸范围 +25%','伤害 +40%','冷却 -25%','每次布置两颗']},
   laser:{name:'棱光',icon:'光',color:'#b388ff',desc:['朝敌人扫射一道贯穿光束','持续 +40%','伤害 +40%','宽度 +50%','同时射出两道光束']},
+};
+/* 超级进化：武器满级（Lv5）+ 拥有对应被动 → 升级时出现金色进化卡 */
+const EVOS={
+  pulse:{with:'multi',name:'星爆脉冲',icon:'星',color:'#ffd166',desc:'向四周爆射 12 发金色穿透弹，伤害 ×1.6'},
+  blades:{with:'swift',name:'风暴刃环',icon:'岚',color:'#d17bff',desc:'光刃 +4，半径与转速大增，伤害 ×1.8，击退更强'},
+  chain:{with:'haste',name:'雷霆风暴',icon:'霆',color:'#fff36b',desc:'同时落下 4 道闪电，跳跃 10 次，伤害 ×2，冷却更短'},
+  nova:{with:'area',name:'绝对零度',icon:'冰',color:'#e8fbff',desc:'寒冰冲击范围 ×1.8，伤害 ×2.2，冻结 1.5 秒'},
+  missile:{with:'might',name:'星陨导弹群',icon:'陨',color:'#ff7ad9',desc:'导弹 +4，爆炸范围 ×1.6，伤害 ×1.8，发射更快'},
+  mines:{with:'armor',name:'黑洞地雷',icon:'洞',color:'#7a5cff',desc:'地雷会把周围敌人吸过来再爆炸，范围 ×1.8，伤害 ×2.5'},
+  laser:{with:'crit',name:'天穹棱镜',icon:'穹',color:'#ff5cc8',desc:'同时 4 道光束旋转扫射整圈，伤害 ×2'},
 };
 const PASSIVES={
   might:{name:'强化弹头',icon:'力',color:'#ff6b6b',max:5,desc:'伤害 +10%'},
@@ -387,7 +411,7 @@ function recalc(){
 }
 function newRun(){
   run={char:save.char,t:0,kills:0,lv:1,xp:0,xpNeed:xpNeed(1),weapons:{},wstate:{},passives:{},curses:[],mods:{dmg:1,hp:1,spawn:1,xp:1,critMul:0,taken:1,spd:1,mag:1,gold:1,ehp:1,cd:1,dashCd:1},
-    coins:0,pendingLv:0,rerolls:1+(save.up.reroll||0),revive:save.up.revive?1:0,ult:0,bossIdx:0,boss:null,nextElite:60,swarms:[210,390],spawnAcc:0,won:false,gemStreak:0,gemStreakT:0,dmgDealt:0,perfects:0,wdmg:{},combo:0,comboT:0,bestCombo:0,bossWarn:0,warned:{},flash:0,lastHeal:0};
+    coins:0,pendingLv:0,rerolls:1+(save.up.reroll||0),revive:save.up.revive?1:0,ult:0,bossIdx:0,boss:null,nextElite:60,swarms:[210,390],spawnAcc:0,won:false,gemStreak:0,gemStreakT:0,dmgDealt:0,perfects:0,evo:{},wdmg:{},combo:0,comboT:0,bestCombo:0,bossWarn:0,warned:{},flash:0,lastHeal:0};
   enemies=[];ebullets=[];pbullets=[];missiles=[];mines=[];rings=[];lasers=[];bolts=[];booms=[];gems=[];items=[];parts=[];nums=[];toasts=[];
   P={x:0,y:0,vx:0,vy:0,r:11,hp:100,fx:1,fy:0,iframe:0,dashT:0,dashCd:0,dx:1,dy:0,perfectUsed:false,hitFlash:0};
   run.stats=null;recalc();P.hp=run.stats.maxHp;
@@ -590,23 +614,24 @@ const WUPD={
   pulse(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;
     const tgt=nearest(P.x,P.y,560);if(!tgt){st.t=0.1;return}
-    st.t=0.6*(l>=5?0.75:1)*S.cd;
-    const n=1+(l>=2)+(l>=4)+(l>=5)+S.proj,dmg=11*(l>=3?1.3:1),pierce=l>=4?2:1;
+    const E=run.evo.pulse;st.t=(E?0.5:0.6*(l>=5?0.75:1))*S.cd;
+    const n=1+(l>=2)+(l>=4)+(l>=5)+S.proj,dmg=11*(l>=3?1.3:1)*(E?1.6:1),pierce=E?4:l>=4?2:1;
     const base=Math.atan2(tgt.y-P.y,tgt.x-P.x);
-    for(let i=0;i<n;i++){const a=base+(i-(n-1)/2)*0.13;pbullets.push({x:P.x,y:P.y,vx:Math.cos(a)*600,vy:Math.sin(a)*600,dmg,pierce,life:1.0,r:5,c:'#5cf2ff',hit:[],src:'pulse'})}
+    for(let i=0;i<n;i++){const a=base+(i-(n-1)/2)*0.13;pbullets.push({x:P.x,y:P.y,vx:Math.cos(a)*600,vy:Math.sin(a)*600,dmg,pierce,life:1.0,r:5,c:E?'#ffd166':'#5cf2ff',hit:[],src:'pulse'})}
+    if(E){const m=12+S.proj*2,off=Math.random()*TAU;for(let i=0;i<m;i++){const a=off+i/m*TAU;pbullets.push({x:P.x,y:P.y,vx:Math.cos(a)*520,vy:Math.sin(a)*520,dmg:dmg*0.8,pierce,life:0.9,r:5,c:'#ffd166',hit:[],src:'pulse'})}}
     sfx('shoot');
   },
   blades(st,l,dt){
-    const S=run.stats;const n=2+(l>=2)+(l>=4)+(l>=5)+S.proj,dmg=9*(l>=3?1.4:1),rs=l>=4?4.4:3.2,R=72*(l>=5?1.25:1)*S.area;
+    const S=run.stats,E=run.evo.blades;const n=2+(l>=2)+(l>=4)+(l>=5)+S.proj+(E?4:0),dmg=9*(l>=3?1.4:1)*(E?1.8:1),rs=E?5.6:l>=4?4.4:3.2,R=72*(l>=5?1.25:1)*S.area*(E?1.35:1);
     st.a=(st.a+rs*dt)%TAU;st.n=n;st.R=R;
     for(let i=0;i<n;i++){
       const a=st.a+i*TAU/n,bx=P.x+Math.cos(a)*R,by=P.y+Math.sin(a)*R;
-      near(bx,by,24,e=>{if(e.dead)return;const dx=e.x-bx,dy=e.y-by;if(dx*dx+dy*dy<(e.r+12)**2&&run.t>=e.bladeHit){e.bladeHit=run.t+0.4;damage(e,dmg,{kb:90,ang:Math.atan2(e.y-P.y,e.x-P.x),src:'blades'})}});
+      near(bx,by,24,e=>{if(e.dead)return;const dx=e.x-bx,dy=e.y-by;if(dx*dx+dy*dy<(e.r+12)**2&&run.t>=e.bladeHit){e.bladeHit=run.t+0.4;damage(e,dmg,{kb:E?220:90,ang:Math.atan2(e.y-P.y,e.x-P.x),src:'blades'})}});
     }
   },
   chain(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;
-    st.t=1.5*(l>=4?0.8:1)*S.cd;const jumps=2+(l>=2?2:0)+(l>=4?2:0),dmg=20*(l>=3?1.35:1),n=(l>=5?2:1)+S.proj;
+    const E=run.evo.chain;st.t=1.5*(l>=4?0.8:1)*S.cd*(E?0.6:1);const jumps=E?10:2+(l>=2?2:0)+(l>=4?2:0),dmg=20*(l>=3?1.35:1)*(E?2:1),n=(E?4:l>=5?2:1)+S.proj;
     const used=new Set();let any=false;
     for(let k=0;k<n;k++){
       const cands=enemies.filter(e=>!e.dead&&!used.has(e.id)&&Math.abs(e.x-P.x)<W/zoom/2&&Math.abs(e.y-P.y)<H/zoom/2);
@@ -619,25 +644,25 @@ const WUPD={
   nova(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;
     if(!nearest(P.x,P.y,260)){st.t=0.2;return}
-    st.t=2.8*(l>=4?0.8:1)*S.cd;
-    rings.push({x:P.x,y:P.y,r:8,max:120*S.area*(l>=2?1.2:1)*(l>=5?1.2:1),dmg:15*(l>=3?1.4:1),id:nextId++,speed:520,c:'#9fd0ff',slow:0.45,freeze:l>=5?0.6:0,follow:true});
+    const E=run.evo.nova;st.t=2.8*(l>=4?0.8:1)*S.cd*(E?0.8:1);
+    rings.push({x:P.x,y:P.y,r:8,max:120*S.area*(l>=2?1.2:1)*(l>=5?1.2:1)*(E?1.8:1),dmg:15*(l>=3?1.4:1)*(E?2.2:1),id:nextId++,speed:E?700:520,c:E?'#e8fbff':'#9fd0ff',slow:0.45,freeze:E?1.5:l>=5?0.6:0,follow:true});
     tone(1600,.25,'sine',.05,.4);
   },
   missile(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;const tgt=nearest(P.x,P.y,600);if(!tgt){st.t=0.2;return}
-    st.t=1.6*(l>=5?0.7:1)*S.cd;const n=1+(l>=2)+(l>=4)+(l>=5)+S.proj;
-    for(let i=0;i<n;i++){const a=Math.random()*TAU;missiles.push({x:P.x,y:P.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,tgt:null,life:3,dmg:26*(l>=4?1.3:1),blast:50*S.area*(l>=3?1.3:1),trail:0})}
+    const E=run.evo.missile;st.t=(E?0.9:1.6*(l>=5?0.7:1))*S.cd;const n=1+(l>=2)+(l>=4)+(l>=5)+S.proj+(E?4:0);
+    for(let i=0;i<n;i++){const a=Math.random()*TAU;missiles.push({x:P.x,y:P.y,vx:Math.cos(a)*200,vy:Math.sin(a)*200,tgt:null,life:3,dmg:26*(l>=4?1.3:1)*(E?1.8:1),blast:50*S.area*(l>=3?1.3:1)*(E?1.6:1),trail:0})}
     tone(500,.15,'sawtooth',.03,2);
   },
   mines(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;st.t=1.0*(l>=4?0.75:1)*S.cd;
     const n=(l>=5?2:1)+(S.proj>0?1:0),max=6+l*2;
-    for(let i=0;i<n;i++){mines.push({x:P.x+rand(-14,14),y:P.y+rand(-14,14),arm:0.35,life:10,dmg:38*(l>=3?1.4:1),r:58*S.area*(l>=2?1.25:1)});if(mines.length>max)mines.shift()}
+    const E=run.evo.mines;for(let i=0;i<n;i++){mines.push({x:P.x+rand(-14,14),y:P.y+rand(-14,14),arm:0.35,life:10,dmg:38*(l>=3?1.4:1)*(E?2.5:1),r:58*S.area*(l>=2?1.25:1)*(E?1.8:1),evo:E,fuse:-1});if(mines.length>max)mines.shift()}
   },
   laser(st,l,dt){
     st.t-=dt;if(st.t>0)return;const S=run.stats;const tgt=nearest(P.x,P.y,620);if(!tgt){st.t=0.2;return}
-    st.t=3.2*S.cd;const base=Math.atan2(tgt.y-P.y,tgt.x-P.x),n=(l>=5?2:1)+S.proj;
-    for(let i=0;i<n;i++){const off=n>1?(i/(n)*TAU):0;lasers.push({a:base-0.55+off,da:1.1,t:0,dur:0.5*(l>=2?1.4:1),dps:70*(l>=3?1.4:1),w:16*(l>=4?1.5:1)*S.area,len:680,tick:0})}
+    const E=run.evo.laser;st.t=3.2*S.cd;const base=Math.atan2(tgt.y-P.y,tgt.x-P.x),n=(E?4:l>=5?2:1)+S.proj;
+    for(let i=0;i<n;i++){const off=n>1?(i/(n)*TAU):0;lasers.push({a:base-0.55+off,da:E?TAU:1.1,t:0,dur:E?1.3:0.5*(l>=2?1.4:1),dps:70*(l>=3?1.4:1)*(E?2:1),w:16*(l>=4?1.5:1)*S.area*(E?1.4:1),len:680,tick:0,evo:E})}
     tone(220,.5,'sawtooth',.05,3);
   },
 };
@@ -721,8 +746,9 @@ function update(dt){
   // 地雷
   for(const m of mines){
     m.life-=dt;m.arm-=dt;if(m.arm>0)continue;
+    if(m.evo&&m.fuse>=0){m.fuse-=dt;near(m.x,m.y,m.r*1.4,e=>{if(e.dead||e.boss)return;const dx=m.x-e.x,dy=m.y-e.y,d=Math.hypot(dx,dy)||1;e.x+=dx/d*260*dt;e.y+=dy/d*260*dt});if(m.fuse<=0){m.life=0;explode(m.x,m.y,m.r,m.dmg,'#7a5cff','mines')}continue}
     let trig=false;near(m.x,m.y,30,e=>{if(!e.dead&&(e.x-m.x)**2+(e.y-m.y)**2<(e.r+12)**2){trig=true;return false}});
-    if(trig){m.life=0;explode(m.x,m.y,m.r,m.dmg,'#80ed99','mines')}
+    if(trig){if(m.evo){m.fuse=0.9;tone(90,0.9,'sine',0.12,0.5)}else{m.life=0;explode(m.x,m.y,m.r,m.dmg,'#80ed99','mines')}}
   }
   mines=mines.filter(m=>m.life>0);
   // 冲击环
@@ -810,8 +836,10 @@ function upgradePool(){
   const pool=[];const wc=Object.keys(run.weapons).length,pc=Object.keys(run.passives).length;
   for(const id in WEAPONS){const lv=run.weapons[id]||0;if(lv>=5||(!lv&&wc>=5))continue;pool.push({kind:'w',id,lv,w:lv?3:1.8})}
   for(const id in PASSIVES){const lv=run.passives[id]||0;if(lv>=PASSIVES[id].max||(!lv&&pc>=6))continue;pool.push({kind:'p',id,lv,w:lv?2.2:1.4})}
+  for(const id of evoReady())pool.push({kind:'e',id,lv:5,w:9});
   return pool;
 }
+function evoReady(){const out=[];for(const id in run.weapons){if(run.weapons[id]>=5&&!run.evo[id]&&(run.passives[EVOS[id].with]||0)>=1)out.push(id)}return out}
 function genChoices(){
   const pool=upgradePool();const out=[];
   while(out.length<3&&pool.length){const tot=pool.reduce((s,a)=>s+a.w,0);let r=Math.random()*tot,i=0;for(;i<pool.length;i++){r-=pool[i].w;if(r<=0)break}out.push(pool.splice(Math.min(i,pool.length-1),1)[0])}
@@ -824,6 +852,7 @@ function choiceInfo(c){
   if(c.kind==='w'){const w=WEAPONS[c.id];return{name:w.name,icon:w.icon,color:w.color,desc:w.desc[c.lv],lv:c.lv?('Lv'+c.lv+' → '+(c.lv+1)):'',isNew:!c.lv}}
   if(c.kind==='p'){const p=PASSIVES[c.id];return{name:p.name,icon:p.icon,color:p.color,desc:p.desc,lv:c.lv?('Lv'+c.lv+' → '+(c.lv+1)):'',isNew:!c.lv}}
   if(c.kind==='c'){const k=CURSES.find(x=>x.id===c.id);return{name:k.name,icon:'契',color:'#b388ff',desc:k.desc+'（每局限一次）',curse:true}}
+  if(c.kind==='e'){const e=EVOS[c.id];return{name:'超级进化：'+e.name,icon:e.icon,color:e.color,desc:WEAPONS[c.id].name+' + '+PASSIVES[e.with].name+' → '+e.desc,evo:true}}
   if(c.kind==='heal')return{name:'应急修复',icon:'+',color:'#80ed99',desc:'回复 40 生命'};
   return{name:'金币袋',icon:'¥',color:'#ffd166',desc:'获得 25 金币'};
 }
@@ -831,6 +860,7 @@ function applyChoice(c){
   if(c.kind==='w')run.weapons[c.id]=(run.weapons[c.id]||0)+1;
   else if(c.kind==='p')run.passives[c.id]=(run.passives[c.id]||0)+1;
   else if(c.kind==='c'){const k=CURSES.find(x=>x.id===c.id);run.curses.push(k.id);k.apply(run.mods)}
+  else if(c.kind==='e'){run.evo[c.id]=1;toast('超级进化！'+EVOS[c.id].name,EVOS[c.id].color,2.6);run.flash=1.5;cam.shake=10;burst(P.x,P.y,EVOS[c.id].color,60,320);rings.push({x:P.x,y:P.y,r:10,max:420,dmg:80,id:nextId++,speed:900,c:EVOS[c.id].color,ult:true,slow:0,freeze:0});sfx('ult')}
   else if(c.kind==='heal')P.hp=Math.min(run.stats.maxHp,P.hp+40);
   else run.coins+=25;
   recalc();
@@ -840,7 +870,7 @@ function cardHTML(info){
 }
 function renderChoices(){
   const list=$('cardList');list.innerHTML='';
-  run.choices.forEach((c,i)=>{const info=choiceInfo(c);const b=document.createElement('button');b.className='card'+(info.curse?' curse':'');b.innerHTML=cardHTML(info);
+  run.choices.forEach((c,i)=>{const info=choiceInfo(c);const b=document.createElement('button');b.className='card'+(info.curse?' curse':'')+(info.evo?' evo':'');b.innerHTML=cardHTML(info);
     b.onclick=()=>{sfx('click');applyChoice(c);run.pendingLv--;closeOverlay('levelup');if(run.pendingLv>0)openLevelUp()};list.appendChild(b)});
   const hasCurse=run.choices.some(c=>c.kind==='c');$('btnTakeAll').textContent=hasCurse?'🎁 全部拿走（免费，不含契约）':'🎁 全部拿走（免费）';
   const rb=$('btnReroll');rb.textContent='刷新（剩 '+run.rerolls+' 次）';rb.disabled=run.rerolls<=0;
@@ -854,23 +884,25 @@ $('btnReroll').onclick=()=>{if(run.rerolls<=0)return;run.rerolls--;run.choices=g
 function openChest(big){
   state='chest';sfx('chest');const n=big?3:(Math.random()<0.25?3:1);const got=[];
   for(let i=0;i<n;i++){
-    const pool=upgradePool().filter(c=>c.lv>0);const pl=pool.length?pool:upgradePool();
+    const ev=evoReady();const pool=upgradePool().filter(c=>c.lv>0&&c.kind!=='e');const pl=ev.length?[{kind:'e',id:ev[0],lv:5}]:pool.length?pool:upgradePool();
     if(!pl.length){got.push({kind:'gold'});applyChoice({kind:'gold'});continue}
     const c=pl[Math.random()*pl.length|0];got.push(c);const info=choiceInfo(c);applyChoice(c);c._info=info;
   }
   $('chestTitle').textContent=n===3?'大宝箱！三连升级':'精英宝箱';
-  $('chestList').innerHTML=got.map(c=>'<div class="card">'+cardHTML(c._info||choiceInfo(c))+'</div>').join('');
+  $('chestList').innerHTML=got.map(c=>'<div class="card'+(c.kind==='e'?' evo':'')+'">'+cardHTML(c._info||choiceInfo(c))+'</div>').join('');
   showScreen('chest');
 }
 $('btnChestOk').onclick=()=>{closeOverlay('chest')};
 function closeOverlay(id){$(id).hidden=true;if(state!=='over'&&state!=='menu'){state='play';last=performance.now()}}
-function showScreen(id){for(const s of ['menu','shopScreen','levelup','chest','pause','result'])$(s).hidden=s!==id}
+function showScreen(id){for(const s of ['menu','shopScreen','evoScreen','levelup','chest','pause','result'])$(s).hidden=s!==id}
+$('btnEvo').onclick=()=>{initAudio();sfx('click');$('evoList').innerHTML=Object.entries(EVOS).map(([id,e])=>'<div class="evoRow"><div class="ic" style="background:'+WEAPONS[id].color+'">'+WEAPONS[id].icon+'</div>+<div class="ic" style="background:'+PASSIVES[e.with].color+'">'+PASSIVES[e.with].icon+'</div>→<div class="ic" style="background:'+e.color+'">'+e.icon+'</div><div><b>'+e.name+'</b><small>'+WEAPONS[id].name+' Lv5 + '+PASSIVES[e.with].name+'：'+e.desc+'</small></div></div>').join('');showScreen('evoScreen')};
+$('btnEvoBack').onclick=()=>openMenu();
 
 /* ================= 暂停 / 结算 ================= */
 function openPause(){
   if(state==='play')GameMusic.pause();
   if(state!=='play')return;state='pause';
-  const items=[];for(const id in run.weapons){const w=WEAPONS[id];items.push({name:w.name,icon:w.icon,color:w.color,desc:'等级 '+run.weapons[id]+' / 5'})}
+  const items=[];for(const id in run.weapons){const w=WEAPONS[id],e=EVOS[id];if(run.evo[id])items.push({name:'★ '+e.name,icon:e.icon,color:e.color,desc:'已超级进化 · '+e.desc});else items.push({name:w.name,icon:w.icon,color:w.color,desc:'等级 '+run.weapons[id]+' / 5 · 进化需要：Lv5 + '+PASSIVES[e.with].name})}
   for(const id in run.passives){const p=PASSIVES[id];items.push({name:p.name,icon:p.icon,color:p.color,desc:'等级 '+run.passives[id]+' / '+p.max})}
   for(const id of run.curses){const k=CURSES.find(x=>x.id===id);items.push({name:k.name,icon:'契',color:'#b388ff',desc:k.desc})}
   $('pauseBuild').innerHTML=statPanel()+dmgPanel()+items.map(i=>'<div class="card" style="min-height:56px;padding:8px 12px">'+cardHTML(i)+'</div>').join('');
@@ -1067,7 +1099,7 @@ function render3D(){
   }
   fin(CN,nc);fin(BX,nb);
   // 地雷
-  let nm=0;for(const mm of mines){if(nm>=40)break;const k=mm.arm>0?0.5:0.75+0.25*Math.sin(t*10);put(g.mine,nm,mm.x*K3,0.06,mm.y*K3,0.15*k+0.05,1,0.15*k+0.05,t);col(g.mine,nm++,mm.arm>0?'#3a7a4a':'#80ed99');if(gi<2600){put(GL,gi,mm.x*K3,0.02,mm.y*K3,mm.r*K3*1.1,1,mm.r*K3*1.1);col(GL,gi++,'#80ed99',mm.arm>0?0.05:0.15)}}fin(g.mine,nm);
+  let nm=0;for(const mm of mines){if(nm>=40)break;const k=mm.fuse>0?1.2+0.5*Math.sin(t*30):mm.arm>0?0.5:0.75+0.25*Math.sin(t*10);if(mm.fuse>0&&gi<2600){put(GL,gi,mm.x*K3,0.03,mm.y*K3,mm.r*K3*2.6,1,mm.r*K3*2.6);col(GL,gi++,'#7a5cff',0.6)}put(g.mine,nm,mm.x*K3,0.06,mm.y*K3,0.15*k+0.05,1,0.15*k+0.05,t);col(g.mine,nm++,mm.evo?'#7a5cff':mm.arm>0?'#3a7a4a':'#80ed99');if(gi<2600){put(GL,gi,mm.x*K3,0.02,mm.y*K3,mm.r*K3*1.1,1,mm.r*K3*1.1);col(GL,gi++,'#80ed99',mm.arm>0?0.05:0.15)}}fin(g.mine,nm);
   // 子弹 / 导弹 / 敌弹
   let nbl=0;const BL=g.ball;
   for(const b of pbullets){if(nbl>=900)break;put(BL,nbl,b.x*K3,0.35,b.y*K3,0.09,0.09,0.09);col(BL,nbl++,'#bffcff');if(gi<2600){put(GL,gi,b.x*K3,0.2,b.y*K3,0.6,1,0.6);col(GL,gi++,b.c,0.9)}}
@@ -1075,7 +1107,7 @@ function render3D(){
   for(const b of ebullets){if(!inV(b.x,b.y,10)||nbl>=900)continue;const s=(b.r+1)*K3;put(BL,nbl,b.x*K3,0.35,b.y*K3,s,s,s);col(BL,nbl++,b.c);if(gi<2600){put(GL,gi,b.x*K3,0.05,b.y*K3,s*7,1,s*7);col(GL,gi++,b.c,0.8)}}
   fin(BL,nbl);
   // 环绕刃
-  const bs=run.wstate.blades;let nbd=0;if(run.weapons.blades&&bs&&bs.n){for(let i=0;i<bs.n&&i<20;i++){const a=bs.a+i*TAU/bs.n,x=P.x+Math.cos(a)*bs.R,y=P.y+Math.sin(a)*bs.R;put(g.blade,nbd,x*K3,0.35,y*K3,0.28,0.28,0.28,-a,t*6);col(g.blade,nbd++,'#ffb37a');if(gi<2600){put(GL,gi,x*K3,0.05,y*K3,0.9,1,0.9);col(GL,gi++,'#ff9f5c',0.7)}}}fin(g.blade,nbd);
+  const bs=run.wstate.blades;let nbd=0;if(run.weapons.blades&&bs&&bs.n){for(let i=0;i<bs.n&&i<20;i++){const a=bs.a+i*TAU/bs.n,x=P.x+Math.cos(a)*bs.R,y=P.y+Math.sin(a)*bs.R;const bc=run.evo.blades?'#d17bff':'#ffb37a';put(g.blade,nbd,x*K3,0.35,y*K3,run.evo.blades?0.36:0.28,0.28,run.evo.blades?0.36:0.28,-a,t*6);col(g.blade,nbd++,bc);if(gi<2600){put(GL,gi,x*K3,0.05,y*K3,0.9,1,0.9);col(GL,gi++,'#ff9f5c',0.7)}}}fin(g.blade,nbd);
   // 冲击环
   for(let i=0;i<g.rings.length;i++){const m=g.rings[i],r=rings[i];if(!r){m.visible=false;continue}m.visible=true;const s=r.r*K3;m.position.set(r.x*K3,0.06,r.y*K3);m.scale.set(s,1,s);m.material.color.set(r.c);m.material.opacity=Math.max(0,1-r.r/r.max)*(r.ult?1:0.85)}
   // 爆炸
@@ -1083,7 +1115,7 @@ function render3D(){
   for(;bi<g.booms.length;bi++)g.booms[bi].visible=false;
   // 激光
   for(let i=0;i<g.beams.length;i++){const L=lasers[i],m=g.beams[i],c=g.beamCore[i];if(!L){m.visible=c.visible=false;continue}const a=L.cur||L.a,k=Math.sin(Math.PI*L.t/L.dur),len=L.len*K3,w=L.w*K3*k;
-    for(const[mm,ww]of[[m,w*1.6],[c,w*0.45]]){mm.visible=true;mm.position.set((P.x+Math.cos(a)*L.len/2)*K3,0.35,(P.y+Math.sin(a)*L.len/2)*K3);mm.rotation.set(0,-a,0);mm.scale.set(len,Math.max(0.01,ww),Math.max(0.01,ww))}}
+    m.material.color.set(L.evo?'#ff5cc8':'#b388ff');for(const[mm,ww]of[[m,w*1.6],[c,w*0.45]]){mm.visible=true;mm.position.set((P.x+Math.cos(a)*L.len/2)*K3,0.35,(P.y+Math.sin(a)*L.len/2)*K3);mm.rotation.set(0,-a,0);mm.scale.set(len,Math.max(0.01,ww),Math.max(0.01,ww))}}
   // 雷链
   let bp=0;const BP=g.boltPos;
   for(const b of bolts){for(let i=1;i<b.pts.length;i++){const[x0,y0]=b.pts[i-1],[x1,y1]=b.pts[i];let px=x0,py=y0;for(let s=1;s<=4;s++){const f=s/4;const nx=s<4?x0+(x1-x0)*f+rand(-10,10):x1,ny=s<4?y0+(y1-y0)*f+rand(-10,10):y1;if(bp<1198){BP[bp*3]=px*K3;BP[bp*3+1]=0.5;BP[bp*3+2]=py*K3;BP[bp*3+3]=nx*K3;BP[bp*3+4]=0.5;BP[bp*3+5]=ny*K3;bp+=2}px=nx;py=ny}}}
@@ -1158,7 +1190,7 @@ function drawHUD(){
   ctx.font=Math.round(11*ui)+'px sans-serif';ctx.fillStyle='#cfd8ea';ctx.fillText(Math.ceil(P.hp)+' / '+S.maxHp,lx,top+54*ui);
   // 武器图标
   let ix=lx;const iy=top+72*ui,is=Math.round(22*ui);
-  for(const id in run.weapons){const w=WEAPONS[id];ctx.fillStyle=w.color;ctx.globalAlpha=.9;ctx.fillRect(ix,iy,is,is);ctx.globalAlpha=1;ctx.fillStyle='#06101e';ctx.font='bold '+Math.round(13*ui)+'px sans-serif';ctx.textAlign='center';ctx.fillText(w.icon,ix+is/2,iy+4*ui);ctx.fillStyle='#fff';ctx.font='bold '+Math.round(9*ui)+'px sans-serif';ctx.fillText(run.weapons[id],ix+is-3,iy+is-8);ix+=is+4}
+  for(const id in run.weapons){const w=WEAPONS[id],ev=run.evo[id];if(ev){ctx.fillStyle='#ffd166';ctx.fillRect(ix-2,iy-2,is+4,is+4)}ctx.fillStyle=ev?EVOS[id].color:w.color;ctx.globalAlpha=.9;ctx.fillRect(ix,iy,is,is);ctx.globalAlpha=1;ctx.fillStyle='#06101e';ctx.font='bold '+Math.round(13*ui)+'px sans-serif';ctx.textAlign='center';ctx.fillText(ev?EVOS[id].icon:w.icon,ix+is/2,iy+4*ui);ctx.fillStyle='#fff';ctx.font='bold '+Math.round(9*ui)+'px sans-serif';ctx.fillText(run.weapons[id],ix+is-3,iy+is-8);ix+=is+4}
   ctx.textAlign='left';
   // 右上
   ctx.textAlign='right';const rx=W-Math.max(12,safeR+10)-50;ctx.font='bold '+Math.round(14*ui)+'px sans-serif';ctx.fillStyle='#fff';ctx.fillText('击杀 '+run.kills,rx,top+16);
